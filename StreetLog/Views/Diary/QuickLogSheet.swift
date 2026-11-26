@@ -297,6 +297,9 @@ struct QuickLogSheet: View {
         if saveAsMax, canRecord, let lift {
             context.insert(MaxAttempt(date: entryDate, lift: lift, addedWeight: weight, bodyweight: bodyweight))
         }
+        if draft.entry == nil, Calendar.current.isDateInToday(entryDate) {
+            RestTimer.shared.autoStartIfEnabled()
+        }
         dismiss()
     }
 }

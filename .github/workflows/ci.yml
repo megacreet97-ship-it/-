@@ -87,6 +87,7 @@ jobs:
           shoot 7-standards -initialTab 1 -demoScreen standards
           shoot 8-copy-day -initialTab 0 -demoScreen copyday
           shoot 11-technique -initialTab 2 -demoScreen technique
+          shoot 12-rest -initialTab 0 -demoRest YES
           shoot 9-recomp -initialTab 1 -demoGoal recomp
           shoot 10-profile-recomp -initialTab 4
       - uses: actions/upload-artifact@v4

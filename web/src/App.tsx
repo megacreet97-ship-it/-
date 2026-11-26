@@ -5,6 +5,7 @@ import { DiaryScreen } from './screens/Diary'
 import { ExercisesScreen } from './screens/Exercises'
 import { GoalScreen, goalTabTitle } from './screens/Goal'
 import { ProfileScreen } from './screens/Profile'
+import { RestTimerBar } from './screens/RestTimer'
 import { effectiveGoal, useData } from './store'
 
 const TAB_COUNT = 5
@@ -36,6 +37,7 @@ export default function App() {
       {tab === 2 && <ExercisesScreen />}
       {tab === 3 && <AnalyticsScreen />}
       {tab === 4 && <ProfileScreen />}
+      <RestTimerBar raised={tab === 0} />
       <nav className="tabbar">
         {tabs.map((t, i) => (
           <button key={i} className={i === tab ? 'active' : ''} onClick={() => setTab(i)} aria-current={i === tab ? 'page' : undefined}>

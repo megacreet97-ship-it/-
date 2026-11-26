@@ -14,6 +14,7 @@ struct DiaryView: View {
     @State private var selectedDate = Calendar.current.startOfDay(for: .now)
     @State private var draft: LogDraft?
     @State private var choosingDayToCopy = false
+    @State private var showingRest = false
 
     private let calendar = Calendar.current
 
@@ -55,6 +56,12 @@ struct DiaryView: View {
             .background(Color(.systemBackground))
             .navigationTitle(title)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showingRest = true } label: {
+                        Label("Таймер", systemImage: "timer")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     if !calendar.isDateInToday(selectedDate) {
                         Button("Сегодня") {
@@ -64,6 +71,7 @@ struct DiaryView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showingRest) { RestTimerSheet() }
             .safeAreaInset(edge: .bottom) {
                 Button {
                     draft = LogDraft(date: selectedDate)
@@ -201,6 +209,7 @@ struct DiaryView: View {
                 entry.sets += 1
             }
         }
+        RestTimer.shared.autoStartIfEnabled()
     }
 
     private func duplicate(_ entry: WorkoutEntry) {

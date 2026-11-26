@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '../icons'
-import { dayMonth, estimatedAddedWeight, kg, liftFullTitle, normalizeSets, setsLabel, type Lift } from '../logic'
+import { dayMonth, estimatedAddedWeight, kg, liftFullTitle, normalizeSets, setsLabel, startOfDay, type Lift } from '../logic'
 import { actions, useData, type Entry } from '../store'
+import { restTimer } from '../restTimer'
 import { lastEntryFor, recentExercises } from '../derived'
 import { EXERCISE_CATEGORIES, compareCategories } from '../exerciseLibrary'
 import { BigStepper, C, IconBadge, Segmented, Sheet, Switch, alpha, liftColor, liftIcon } from '../ui'
@@ -87,6 +88,7 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
     } else {
       date = atCurrentTime(draft.date)
       actions.addEntry({ date, ...fields })
+      if (startOfDay(date) === startOfDay(Date.now())) restTimer.autoStart()
     }
     if (saveAsMax && canRecord && lift) {
       actions.addAttempt({ date, lift, addedWeight: weight, bodyweight, isCompetition: false, note: '' })

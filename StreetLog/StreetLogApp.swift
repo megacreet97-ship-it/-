@@ -60,7 +60,13 @@ struct RootView: View {
             #if DEBUG
             DemoData.seedIfRequested(context)
             DemoData.applyGoalIfRequested(context)
+            if UserDefaults.standard.bool(forKey: "demoRest") {
+                RestTimer.shared.start(seconds: 95)
+            }
             #endif
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            RestTimerBar(raised: false)
         }
         #if DEBUG
         .sheet(item: Binding(get: { demoScreen.map { DemoScreen(id: $0) } }, set: { demoScreen = $0?.id })) { screen in

@@ -4,6 +4,8 @@ import { addDays, itemReps, itemTonnage, kg, longDay, num, setsLabel, startOfDay
 import { actions, useData, type Entry } from '../store'
 import { toLogItems } from '../derived'
 import { C, IconBadge, Pill, Sheet, alpha, fromDateInput, liftColor, liftIcon, toDateInput, useToast } from '../ui'
+import { RestTimerButton } from './RestTimer'
+import { restTimer, useRestTimer } from '../restTimer'
 import { QuickLogSheet, atCurrentTime, type LogDraft } from './QuickLog'
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -17,6 +19,8 @@ export function DiaryScreen() {
   const [draft, setDraft] = useState<LogDraft | null>(null)
   const [toast, showToast] = useToast()
   const [copying, setCopying] = useState(false)
+  const resting = useRestTimer()
+  const timerUp = resting.endsAt !== null || resting.finishedAt !== null
 
   const dayEntries = useMemo(() => data.entries.filter((e) => startOfDay(e.date) === selected), [data.entries, selected])
   const daysWithEntries = useMemo(() => new Set(data.entries.map((e) => startOfDay(e.date))), [data.entries])
@@ -48,18 +52,22 @@ export function DiaryScreen() {
       actions.updateEntry(entry.id, { sets: entry.sets + 1 })
     }
     showToast(`${entry.exerciseName}: ${entry.sets + 1} подх.`)
+    restTimer.autoStart()
   }
 
   return (
-    <div className="screen stack with-fab">
+    <div className={`screen stack with-fab${timerUp ? ' resting' : ''}`}>
       <div className="screen-header">
         <div>
           <div className="caption" style={{ fontSize: 13, fontWeight: 600 }}>{capitalize(longDay(selected))}</div>
           <h1 className="large-title">Дневник</h1>
         </div>
-        {selected !== today && (
-          <button className="btn-secondary" onClick={() => setSelected(today)} style={{ color: C.orange }}>Сегодня</button>
-        )}
+        <div className="row" style={{ gap: 8 }}>
+          {selected !== today && (
+            <button className="btn-secondary" onClick={() => setSelected(today)} style={{ color: C.orange }}>Сегодня</button>
+          )}
+          <RestTimerButton />
+        </div>
       </div>
 
       <DayStrip selected={selected} today={today} marked={daysWithEntries} onSelect={setSelected} />
