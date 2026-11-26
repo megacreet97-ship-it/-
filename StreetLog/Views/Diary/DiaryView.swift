@@ -309,10 +309,15 @@ struct CopyDaySheet: View {
         }
     }
 
+    private static func title(for day: Date) -> String {
+        let text = day.formatted(.dateTime.weekday(.wide).day().month(.wide))
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+
     private func dayRow(_ day: Date, entries: [WorkoutEntry]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(day.formatted(.dateTime.weekday(.wide).day().month(.wide)).capitalized).font(.headline)
+                Text(Self.title(for: day)).font(.headline)
                 Spacer()
                 if calendar.component(.weekday, from: day) == weekday {
                     Pill(text: "тот же день недели")
