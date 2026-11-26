@@ -51,10 +51,7 @@ struct AnalyticsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    Picker("Период", selection: $period) {
-                        ForEach(AnalyticsPeriod.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
+                    SegmentedCapsules(items: AnalyticsPeriod.allCases, selection: $period) { $0.rawValue }
 
                     if items.isEmpty {
                         ContentUnavailableView("Нет данных за период",
@@ -70,7 +67,8 @@ struct AnalyticsView: View {
                 }
                 .padding()
             }
-            .background(Color(.systemGroupedBackground))
+            .scrollIndicators(.hidden)
+            .background(Color(.systemBackground))
             .navigationTitle("Аналитика")
         }
     }
@@ -82,7 +80,8 @@ struct AnalyticsView: View {
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
                 GridRow {
                     StatTile(title: "Тренировок", value: "\(days.count)",
-                             caption: String(format: "%.1f в неделю", Double(days.count) / weeksInPeriod))
+                             caption: String(format: "%.1f в неделю", Double(days.count) / weeksInPeriod).replacingOccurrences(of: ".", with: ","),
+                             tint: Theme.orange)
                     StatTile(title: "Серия сейчас", value: "\(DiaryAnalytics.currentStreak(days: allDays, calendar: calendar)) дн.",
                              caption: "лучшая: \(DiaryAnalytics.longestStreak(days: allDays, calendar: calendar)) дн.")
                 }
@@ -99,7 +98,8 @@ struct AnalyticsView: View {
             Chart(DiaryAnalytics.weeklyReps(items, calendar: calendar)) { point in
                 BarMark(x: .value("Неделя", point.date, unit: .weekOfYear),
                         y: .value("Повторения", point.value))
-                    .foregroundStyle(Color.accentColor.gradient)
+                    .foregroundStyle(Theme.accentGradient)
+                    .cornerRadius(6)
             }
             .frame(height: 200)
         }
@@ -110,7 +110,8 @@ struct AnalyticsView: View {
             Chart(liftTonnageByWeek) { point in
                 BarMark(x: .value("Неделя", point.date, unit: .weekOfYear),
                         y: .value("кг", point.value))
-                    .foregroundStyle(Color.orange.gradient)
+                    .foregroundStyle(LinearGradient(colors: [Theme.violet, Theme.blue], startPoint: .top, endPoint: .bottom))
+                    .cornerRadius(6)
             }
             .frame(height: 180)
             Text("Отягощение × повторения × подходы по подтягиваниям и брусьям с весом. Помогает контролировать нагрузку в блоках подготовки.")
@@ -134,7 +135,7 @@ struct AnalyticsView: View {
                             Text("\(total.totalReps)").monospacedDigit().foregroundStyle(.secondary)
                             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                         }
-                        ProgressView(value: Double(total.totalReps), total: maxReps)
+                        ProgressBar(fraction: Double(total.totalReps) / maxReps, height: 6)
                         Text("\(total.sessions) трен. · \(total.totalSets) подх." + (total.maxWeight > 0 ? " · макс. +\(Format.kg(total.maxWeight))" : ""))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -161,7 +162,11 @@ struct ExerciseDetailView: View {
             Section {
                 Chart(DiaryAnalytics.dailyProgress(items, exercise: exerciseName)) { point in
                     LineMark(x: .value("Дата", point.date), y: .value(axisLabel, point.value))
+                        .foregroundStyle(Theme.orange)
+                        .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .interpolationMethod(.monotone)
                     PointMark(x: .value("Дата", point.date), y: .value(axisLabel, point.value))
+                        .foregroundStyle(Theme.pink)
                 }
                 .frame(height: 200)
                 .padding(.vertical, 8)

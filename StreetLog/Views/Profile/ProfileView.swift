@@ -45,30 +45,101 @@ struct ProfileForm: View {
         Binding(get: { profile.competitionDate ?? .now }, set: { profile.competitionDate = $0 })
     }
 
+    private var federation: Binding<Federation> {
+        Binding(get: { profile.federation }, set: { profile.federation = $0; profile.applyStandard() })
+    }
+
+    private var weightClassLimit: Binding<Double> {
+        Binding(get: { profile.weightClassLimit }, set: { profile.weightClassLimit = $0; profile.applyStandard() })
+    }
+
+    private var goalRank: Binding<SportRank> {
+        Binding(get: { profile.goalRank }, set: { profile.goalRank = $0; profile.applyStandard() })
+    }
+
+    private var suggestedClass: WeightClassStandard? {
+        Standards.classFor(bodyweight: profile.bodyweight, federation: profile.federation)
+    }
+
     var body: some View {
         Form {
-            Section("Спортсмен") {
-                TextField("Имя", text: $profile.name)
+            Section {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle().fill(Theme.accentGradient)
+                        if let initial = profile.name.first {
+                            Text(String(initial).uppercased())
+                                .font(.title2.weight(.bold))
+                                .foregroundStyle(.white)
+                        } else {
+                            Image(systemName: "person.fill")
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .frame(width: 56, height: 56)
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Ваше имя", text: $profile.name).font(.headline)
+                        Text("\(profile.federation.title) · \(profile.weightClass) · цель \(profile.goalRank.title)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
                 WeightField(title: "Вес тела", value: $profile.bodyweight, step: 0.1)
-                LabeledContent("Весовая категория") {
-                    TextField("например, до 80 кг", text: $profile.weightClass)
-                        .multilineTextAlignment(.trailing)
+            } footer: {
+                if let suggestedClass, suggestedClass.limit != profile.weightClassLimit {
+                    Button("По весу вы проходите в категорию \(suggestedClass.title) — выбрать её") {
+                        weightClassLimit.wrappedValue = suggestedClass.limit
+                    }
+                    .font(.footnote)
+                    .tint(Theme.orange)
                 }
             }
 
             Section {
+                Picker("Федерация", selection: federation) {
+                    ForEach(Federation.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Picker("Весовая категория", selection: weightClassLimit) {
+                    ForEach(Standards.classes(for: profile.federation)) { Text($0.title).tag($0.limit) }
+                    Text("Своя цель").tag(0.0)
+                }
+                Picker("Звание", selection: goalRank) {
+                    ForEach(SportRank.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .disabled(profile.standard == nil)
+            } header: {
+                Text("Цель")
+            } footer: {
+                if profile.standard != nil {
+                    Text("Норматив подставляется из таблицы \(profile.federation.title). Звание в двоеборье даётся по сумме; цели по движениям — её раскладка, их можно поправить ниже.")
+                } else {
+                    Text("Своя цель: введите значения вручную, например для другой весовой категории.")
+                }
+            }
+
+            Section {
+                if profile.standard == nil {
+                    LabeledContent("Весовая категория") {
+                        TextField("например, до 82,5 кг", text: $profile.weightClass)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
                 WeightField(title: "Подтягивания", value: $profile.targetPullUp)
                 WeightField(title: "Брусья", value: $profile.targetDip)
-                Toggle("Сумма = подтягивания + брусья", isOn: autoTotal)
-                if autoTotal.wrappedValue {
-                    LabeledContent("Сумма", value: Format.kg(profile.targetPullUp + profile.targetDip))
-                } else {
+                if profile.standard == nil {
+                    Toggle("Сумма = подтягивания + брусья", isOn: autoTotal)
+                }
+                if profile.standard == nil && !autoTotal.wrappedValue {
                     WeightField(title: "Сумма", value: $profile.targetTotal)
+                } else {
+                    LabeledContent("Сумма", value: Format.kg(profile.goalTotal))
                 }
             } header: {
-                Text("Норматив МС (отягощение)")
-            } footer: {
-                Text("Введите требования для своей весовой категории из действующей ЕВСК или положения о соревнованиях. Если норматив задан только суммой — выключите переключатель и укажите сумму, а по движениям — свои целевые веса.")
+                Text("Целевые веса (отягощение)")
             }
 
             Section("Соревнования") {

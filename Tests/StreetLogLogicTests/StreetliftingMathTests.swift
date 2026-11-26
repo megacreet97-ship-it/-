@@ -99,8 +99,37 @@ final class StreetliftingMathTests: XCTestCase {
 
     func testFormat() {
         XCTAssertEqual(Format.kg(50), "50 кг")
-        XCTAssertEqual(Format.kg(47.5), "47.5 кг")
-        XCTAssertEqual(Format.kg(46.25), "46.25 кг")
-        XCTAssertEqual(Format.signedKg(-2.5), "−2.5 кг")
+        XCTAssertEqual(Format.kg(47.5), "47,5 кг")
+        XCTAssertEqual(Format.kg(46.25), "46,25 кг")
+        XCTAssertEqual(Format.signedKg(-2.5), "−2,5 кг")
+    }
+
+    func testStandardsLookupAndSplit() {
+        let isf675 = Standards.lookup(federation: .isf, limit: 67.5)!
+        XCTAssertEqual(isf675.norms(for: .ms)?.total, 152.5)
+        XCTAssertEqual(Standards.lookup(federation: .isf, limit: 75)?.norms(for: .ms)?.total, 165)
+        XCTAssertEqual(Standards.lookup(federation: .wsf, limit: 67.5)?.norms(for: .ms)?.total, 140)
+        XCTAssertEqual(Standards.lookup(federation: .wsf, limit: 75)?.norms(for: .ms)?.total, 152.5)
+        XCTAssertEqual(Standards.classes(for: .isf).map(\.limit), [67.5, 75])
+
+        for standard in Standards.all {
+            let ranks = SportRank.allCases.compactMap { standard.norms(for: $0) }
+            XCTAssertEqual(ranks.count, 3)
+            XCTAssertEqual(ranks.map(\.total), ranks.map(\.total).sorted(), "ranks must increase in \(standard.id)")
+            let split = Standards.split(standard.norms(for: .ms)!)
+            XCTAssertEqual(split.pullUp + split.dip, standard.norms(for: .ms)!.total, accuracy: 1e-9)
+            XCTAssertEqual(split.pullUp.truncatingRemainder(dividingBy: 1.25), 0, accuracy: 1e-9)
+        }
+        XCTAssertEqual(Standards.split(isf675.norms(for: .ms)!).pullUp, 61.25)
+
+        XCTAssertEqual(isf675.achievedRank(total: 134), nil)
+        XCTAssertEqual(isf675.achievedRank(total: 135), .kms)
+        XCTAssertEqual(isf675.achievedRank(total: 160), .ms)
+        XCTAssertEqual(isf675.achievedRank(total: 200), .msmk)
+
+        XCTAssertEqual(Standards.classFor(bodyweight: 67.5, federation: .isf)?.limit, 67.5)
+        XCTAssertEqual(Standards.classFor(bodyweight: 67.6, federation: .isf)?.limit, 75)
+        XCTAssertNil(Standards.classFor(bodyweight: 80, federation: .isf))
+        XCTAssertEqual(Format.number(67.5), "67,5")
     }
 }

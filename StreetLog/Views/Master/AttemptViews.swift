@@ -108,14 +108,12 @@ struct AttemptRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: attempt.lift.symbol)
-                .foregroundStyle(.tint)
-                .frame(width: 28)
+            IconBadge(systemImage: attempt.lift.symbol, tint: attempt.lift.color, size: 38)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(attempt.lift.title).font(.subheadline.weight(.medium))
+                    Text(attempt.lift.title).font(.subheadline.weight(.semibold))
                     if attempt.isCompetition {
-                        Image(systemName: "medal.fill").foregroundStyle(.yellow).font(.caption)
+                        Image(systemName: "medal.fill").foregroundStyle(Theme.yellow).font(.caption)
                     }
                 }
                 Text("\(attempt.date.shortRu) · вес тела \(Format.kg(attempt.bodyweight))")
@@ -124,7 +122,8 @@ struct AttemptRow: View {
             }
             Spacer()
             Text("+\(Format.kg(attempt.addedWeight))")
-                .font(.headline.monospacedDigit())
+                .font(.system(.headline, design: .rounded))
+                .monospacedDigit()
         }
     }
 }

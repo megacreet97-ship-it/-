@@ -369,13 +369,17 @@ enum DiaryAnalytics {
 }
 
 enum Format {
-    static func kg(_ value: Double) -> String {
+    static func number(_ value: Double) -> String {
         let rounded = (value * 100).rounded() / 100
-        let text = rounded.truncatingRemainder(dividingBy: 1) == 0
+        return rounded.truncatingRemainder(dividingBy: 1) == 0
             ? String(Int(rounded))
             : String(format: "%.2f", rounded)
                 .replacingOccurrences(of: #"0+$"#, with: "", options: .regularExpression)
-        return "\(text) кг"
+                .replacingOccurrences(of: ".", with: ",")
+    }
+
+    static func kg(_ value: Double) -> String {
+        "\(number(value)) кг"
     }
 
     static func signedKg(_ value: Double) -> String {

@@ -87,10 +87,14 @@ final class AthleteProfile {
     var targetTotal: Double
     var competitionDate: Date?
     var competitionName: String
+    var federationRaw: String = Federation.isf.rawValue
+    /// Upper limit of the chosen class from `Standards`; 0 means custom targets entered by hand.
+    var weightClassLimit: Double = 0
+    var goalRankRaw: String = SportRank.ms.rawValue
 
     init(name: String = "",
-         bodyweight: Double = 80,
-         weightClass: String = "до 80 кг",
+         bodyweight: Double = 67,
+         weightClass: String = "до 67,5 кг",
          targetPullUp: Double = 0,
          targetDip: Double = 0,
          targetTotal: Double = 0,
@@ -114,6 +118,34 @@ final class AthleteProfile {
     }
 
     var hasTargets: Bool { targetTotal > 0 || targetPullUp > 0 || targetDip > 0 }
+
+    var federation: Federation {
+        get { Federation(rawValue: federationRaw) ?? .isf }
+        set { federationRaw = newValue.rawValue }
+    }
+
+    var goalRank: SportRank {
+        get { SportRank(rawValue: goalRankRaw) ?? .ms }
+        set { goalRankRaw = newValue.rawValue }
+    }
+
+    var standard: WeightClassStandard? {
+        Standards.lookup(federation: federation, limit: weightClassLimit)
+    }
+
+    var goalTotal: Double {
+        targetTotal > 0 ? targetTotal : targetPullUp + targetDip
+    }
+
+    /// Copies the norms of the chosen federation/class/rank into the targets.
+    func applyStandard() {
+        guard let standard, let norms = standard.norms(for: goalRank) else { return }
+        let split = Standards.split(norms)
+        weightClass = standard.title
+        targetTotal = norms.total
+        targetPullUp = split.pullUp
+        targetDip = split.dip
+    }
 }
 
 enum SeedData {
@@ -143,7 +175,10 @@ enum SeedData {
         }
         let profileCount = (try? context.fetchCount(FetchDescriptor<AthleteProfile>())) ?? 0
         if profileCount == 0 {
-            context.insert(AthleteProfile())
+            let profile = AthleteProfile()
+            profile.weightClassLimit = 67.5
+            profile.applyStandard()
+            context.insert(profile)
         }
         try? context.save()
     }

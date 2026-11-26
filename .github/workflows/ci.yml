@@ -51,16 +51,23 @@ jobs:
           xcrun simctl status_bar "$UDID" override --time 9:41 --batteryLevel 100 || true
           xcrun simctl install "$UDID" "$APP"
           mkdir -p screenshots
-          for TAB in 0 1 2 3; do
-            OUT=$(xcrun simctl launch "$UDID" "$BUNDLE_ID" -seedDemo YES -initialTab $TAB)
+          shoot() {
+            NAME=$1; shift
+            OUT=$(xcrun simctl launch "$UDID" "$BUNDLE_ID" -seedDemo YES "$@")
             PID=${OUT##*: }
-            sleep 6
+            sleep 7
             if ! ps -p "$PID" > /dev/null; then
-              echo "App crashed on tab $TAB"; exit 1
+              echo "App crashed on $NAME"; exit 1
             fi
-            xcrun simctl io "$UDID" screenshot "screenshots/tab-$TAB.png"
+            xcrun simctl io "$UDID" screenshot "screenshots/$NAME.png"
             xcrun simctl terminate "$UDID" "$BUNDLE_ID"
-          done
+          }
+          shoot 1-diary -initialTab 0
+          shoot 2-master -initialTab 1
+          shoot 3-analytics -initialTab 2
+          shoot 4-profile -initialTab 3
+          shoot 5-quicklog -initialTab 0 -demoScreen quicklog
+          shoot 6-standards -initialTab 1 -demoScreen standards
       - uses: actions/upload-artifact@v4
         if: always()
         with:

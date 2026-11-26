@@ -1,18 +1,26 @@
 import SwiftData
 import SwiftUI
 
+struct LogDraft: Identifiable {
+    let id = UUID()
+    var date: Date
+    var entry: WorkoutEntry?
+    var exerciseName: String?
+}
+
 struct DiaryView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \WorkoutEntry.date) private var entries: [WorkoutEntry]
     @State private var selectedDate = Calendar.current.startOfDay(for: .now)
-    @State private var showingNewEntry = false
-    @State private var editingEntry: WorkoutEntry?
+    @State private var draft: LogDraft?
 
     private let calendar = Calendar.current
 
     private var dayEntries: [WorkoutEntry] {
         entries.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }
     }
+
+    private var dayItems: [LogItem] { dayEntries.map(\.logItem) }
 
     private var markedDays: Set<Date> {
         DiaryAnalytics.trainingDays(entries.map(\.logItem), calendar: calendar)
@@ -23,155 +31,321 @@ struct DiaryView: View {
         return entries.last { $0.date < start }.map { calendar.startOfDay(for: $0.date) }
     }
 
+    /// Most recently used exercises (newest first) with their last entry, for one-tap logging.
+    private var recentExercises: [WorkoutEntry] {
+        var seen = Set<String>()
+        var result: [WorkoutEntry] = []
+        for entry in entries.reversed() where seen.insert(entry.exerciseName).inserted {
+            result.append(entry)
+            if result.count == 8 { break }
+        }
+        return result
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    WeekStrip(selected: $selectedDate, markedDays: markedDays)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    DayStrip(selected: $selectedDate, markedDays: markedDays)
+                    summaryCard
+                    quickAddSection
+                    workoutSection
                 }
-                .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-
-                if dayEntries.isEmpty {
-                    Section {
-                        ContentUnavailableView {
-                            Label("Нет записей", systemImage: "figure.strengthtraining.functional")
-                        } description: {
-                            Text("Выберите упражнение и запишите повторения и подходы.")
-                        } actions: {
-                            Button("Добавить упражнение") { showingNewEntry = true }
-                                .buttonStyle(.borderedProminent)
-                            if let previousWorkoutDay {
-                                Button("Повторить тренировку от \(previousWorkoutDay.shortRu)") {
-                                    repeatWorkout(from: previousWorkoutDay)
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    Section {
-                        HStack {
-                            StatTile(title: "Упражнений", value: "\(Set(dayEntries.map(\.exerciseName)).count)")
-                            StatTile(title: "Подходов", value: "\(DiaryAnalytics.totalSets(dayEntries.map(\.logItem)))")
-                            StatTile(title: "Повторений", value: "\(DiaryAnalytics.totalReps(dayEntries.map(\.logItem)))")
-                        }
-                    }
-
-                    Section("Тренировка") {
-                        ForEach(dayEntries) { entry in
-                            Button { editingEntry = entry } label: { EntryRow(entry: entry) }
-                                .buttonStyle(.plain)
-                        }
-                        .onDelete(perform: delete)
-                    }
-                }
+                .padding(.horizontal)
+                .padding(.bottom, 100)
             }
-            .navigationTitle(selectedDate.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-            .navigationBarTitleDisplayMode(.inline)
+            .scrollIndicators(.hidden)
+            .background(Color(.systemBackground))
+            .navigationTitle(title)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .topBarTrailing) {
                     if !calendar.isDateInToday(selectedDate) {
-                        Button("Сегодня") { selectedDate = calendar.startOfDay(for: .now) }
+                        Button("Сегодня") {
+                            withAnimation(.snappy) { selectedDate = calendar.startOfDay(for: .now) }
+                        }
+                        .font(.subheadline.weight(.semibold))
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingNewEntry = true } label: { Image(systemName: "plus") }
-                        .accessibilityLabel("Добавить упражнение")
+            }
+            .safeAreaInset(edge: .bottom) {
+                Button {
+                    draft = LogDraft(date: selectedDate)
+                } label: {
+                    Label("Добавить упражнение", systemImage: "plus")
                 }
+                .buttonStyle(GradientButtonStyle())
+                .padding(.horizontal)
+                .padding(.bottom, 8)
             }
-            .sheet(isPresented: $showingNewEntry) {
-                EntryEditorView(date: selectedDate, entry: nil)
-            }
-            .sheet(item: $editingEntry) { entry in
-                EntryEditorView(date: entry.date, entry: entry)
+            .sheet(item: $draft) { draft in
+                QuickLogSheet(draft: draft)
             }
         }
     }
 
-    private func delete(at offsets: IndexSet) {
-        let items = dayEntries
-        for index in offsets { context.delete(items[index]) }
+    private var title: String {
+        if calendar.isDateInToday(selectedDate) { return "Сегодня" }
+        if calendar.isDateInYesterday(selectedDate) { return "Вчера" }
+        return selectedDate.formatted(.dateTime.weekday(.wide).day().month(.wide)).capitalized
+    }
+
+    // MARK: Sections
+
+    private var summaryCard: some View {
+        HStack(spacing: 0) {
+            summaryMetric(value: "\(DiaryAnalytics.totalReps(dayItems))", label: "повторений", highlight: true)
+            Divider().frame(height: 44).overlay(Color.white.opacity(0.1))
+            summaryMetric(value: "\(DiaryAnalytics.totalSets(dayItems))", label: "подходов")
+            Divider().frame(height: 44).overlay(Color.white.opacity(0.1))
+            summaryMetric(value: "\(Set(dayEntries.map(\.exerciseName)).count)", label: "упражнений")
+        }
+        .padding(.vertical, 18)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
+    }
+
+    private func summaryMetric(value: String, label: String, highlight: Bool = false) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(highlight ? AnyShapeStyle(Theme.accentGradient) : AnyShapeStyle(Color.primary))
+                .contentTransition(.numericText())
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var quickAddSection: some View {
+        if !recentExercises.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle(title: "Быстро добавить")
+                ScrollView(.horizontal) {
+                    HStack(spacing: 10) {
+                        ForEach(recentExercises) { entry in
+                            Button {
+                                draft = LogDraft(date: selectedDate, exerciseName: entry.exerciseName)
+                            } label: {
+                                QuickChip(entry: entry)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .scrollIndicators(.hidden)
+                .padding(.horizontal, -16)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var workoutSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionTitle(title: "Тренировка", trailing: dayEntries.isEmpty ? nil : "\(dayEntries.count) зап.")
+            if dayEntries.isEmpty {
+                emptyState
+            } else {
+                ForEach(dayEntries) { entry in
+                    EntryCard(entry: entry,
+                              onAddSet: { addSet(to: entry) },
+                              onEdit: { draft = LogDraft(date: entry.date, entry: entry) },
+                              onDuplicate: { duplicate(entry) },
+                              onDelete: { withAnimation { context.delete(entry) } })
+                }
+                Text("Нажмите на запись, чтобы изменить. Удерживайте — чтобы дублировать или удалить.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            IconBadge(systemImage: "figure.strengthtraining.functional", size: 64)
+            Text("Записей пока нет").font(.headline)
+            Text("Нажмите «Добавить упражнение» внизу или выберите упражнение из быстрых кнопок.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            if let previousWorkoutDay {
+                Button {
+                    repeatWorkout(from: previousWorkoutDay)
+                } label: {
+                    Label("Повторить тренировку от \(previousWorkoutDay.dayMonth)", systemImage: "arrow.clockwise")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Theme.elevated, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+    }
+
+    // MARK: Actions
+
+    private func addSet(to entry: WorkoutEntry) {
+        withAnimation(.snappy) { entry.sets += 1 }
+    }
+
+    private func duplicate(_ entry: WorkoutEntry) {
+        context.insert(WorkoutEntry(date: entry.date.addingTimeInterval(1), exerciseName: entry.exerciseName, lift: entry.lift,
+                                    reps: entry.reps, sets: entry.sets, addedWeight: entry.addedWeight, note: entry.note))
     }
 
     private func repeatWorkout(from day: Date) {
         let source = entries.filter { calendar.isDate($0.date, inSameDayAs: day) }
+        let base = selectedDate.atCurrentTime()
         for (offset, entry) in source.enumerated() {
-            let date = calendar.date(byAdding: .minute, value: offset, to: selectedDate.atCurrentTime()) ?? selectedDate
-            context.insert(WorkoutEntry(date: date, exerciseName: entry.exerciseName, lift: entry.lift,
+            context.insert(WorkoutEntry(date: base.addingTimeInterval(Double(offset)), exerciseName: entry.exerciseName, lift: entry.lift,
                                         reps: entry.reps, sets: entry.sets, addedWeight: entry.addedWeight))
         }
     }
 }
 
-struct EntryRow: View {
+// MARK: - Rows
+
+struct EntryCard: View {
     let entry: WorkoutEntry
+    var onAddSet: () -> Void
+    var onEdit: () -> Void
+    var onDuplicate: () -> Void
+    var onDelete: () -> Void
+
+    private var tint: Color { entry.lift?.color ?? Theme.orange }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: entry.lift?.symbol ?? "dumbbell")
-                .font(.title3)
-                .foregroundStyle(entry.lift == nil ? Color.secondary : Color.accentColor)
-                .frame(width: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.exerciseName).font(.body.weight(.medium))
+        HStack(spacing: 14) {
+            IconBadge(systemImage: entry.lift?.symbol ?? "dumbbell.fill", tint: tint, size: 44)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(entry.exerciseName)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
                 HStack(spacing: 6) {
                     Text("\(entry.sets) × \(entry.reps)")
-                    if entry.addedWeight > 0 { Text("· +\(Format.kg(entry.addedWeight))") }
+                        .font(.system(.title3, design: .rounded).weight(.bold))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                    if entry.addedWeight > 0 {
+                        Pill(text: "+\(Format.kg(entry.addedWeight))", tint: tint)
+                    }
                 }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
                 if !entry.note.isEmpty {
                     Text(entry.note).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
             }
-            Spacer()
-            Text("\(entry.sets * entry.reps)")
-                .font(.headline.monospacedDigit())
-                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            Button(action: onAddSet) {
+                VStack(spacing: 2) {
+                    Image(systemName: "plus").font(.headline)
+                    Text("подход").font(.caption2)
+                }
+                .foregroundStyle(tint)
+                .frame(width: 58, height: 52)
+                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Добавить подход")
         }
-        .contentShape(Rectangle())
+        .padding(14)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .onTapGesture(perform: onEdit)
+        .contextMenu {
+            Button("Изменить", systemImage: "pencil", action: onEdit)
+            Button("Дублировать", systemImage: "plus.square.on.square", action: onDuplicate)
+            Button("Удалить", systemImage: "trash", role: .destructive, action: onDelete)
+        }
     }
 }
 
-struct WeekStrip: View {
+struct QuickChip: View {
+    let entry: WorkoutEntry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: entry.lift?.symbol ?? "dumbbell.fill")
+                    .foregroundStyle(entry.lift?.color ?? Theme.orange)
+                Image(systemName: "plus.circle.fill").foregroundStyle(.secondary)
+            }
+            .font(.subheadline)
+            Text(entry.exerciseName)
+                .font(.footnote.weight(.semibold))
+                .lineLimit(2, reservesSpace: true)
+                .multilineTextAlignment(.leading)
+            Text("\(entry.sets)×\(entry.reps)" + (entry.addedWeight > 0 ? " · +\(Format.number(entry.addedWeight))" : ""))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 140, alignment: .leading)
+        .padding(12)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+struct DayStrip: View {
     @Binding var selected: Date
     let markedDays: Set<Date>
 
     private let calendar = Calendar.current
 
+    private var days: [Date] {
+        let today = calendar.startOfDay(for: .now)
+        return (-56...7).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
+    }
+
     var body: some View {
-        let start = DiaryAnalytics.weekStart(for: selected, calendar: calendar)
-        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-        HStack(spacing: 2) {
-            Button { shift(by: -7) } label: { Image(systemName: "chevron.left") }
-                .buttonStyle(.borderless)
-            ForEach(days, id: \.self) { day in
-                let isSelected = calendar.isDate(day, inSameDayAs: selected)
-                Button { selected = day } label: {
-                    VStack(spacing: 4) {
-                        Text(day.formatted(.dateTime.weekday(.abbreviated)))
-                            .font(.caption2)
-                            .textCase(.uppercase)
-                        Text(day.formatted(.dateTime.day()))
-                            .font(.body.weight(.semibold))
-                        Circle()
-                            .fill(markedDays.contains(day) ? Color.accentColor : Color.clear)
-                            .frame(width: 5, height: 5)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(days, id: \.self) { day in
+                        dayPill(day).id(day)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .background(isSelected ? Color.accentColor.opacity(0.18) : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .foregroundStyle(calendar.isDateInToday(day) ? Color.accentColor : Color.primary)
                 }
-                .buttonStyle(.borderless)
+                .padding(.horizontal)
+                .padding(.vertical, 4)
             }
-            Button { shift(by: 7) } label: { Image(systemName: "chevron.right") }
-                .buttonStyle(.borderless)
+            .scrollIndicators(.hidden)
+            .padding(.horizontal, -16)
+            .onAppear { proxy.scrollTo(calendar.startOfDay(for: selected), anchor: .center) }
+            .onChange(of: selected) { _, newValue in
+                withAnimation(.snappy) { proxy.scrollTo(calendar.startOfDay(for: newValue), anchor: .center) }
+            }
         }
     }
 
-    private func shift(by days: Int) {
-        selected = calendar.date(byAdding: .day, value: days, to: selected) ?? selected
+    private func dayPill(_ day: Date) -> some View {
+        let isSelected = calendar.isDate(day, inSameDayAs: selected)
+        let isToday = calendar.isDateInToday(day)
+        return Button {
+            withAnimation(.snappy) { selected = day }
+        } label: {
+            VStack(spacing: 6) {
+                Text(day.formatted(.dateTime.weekday(.abbreviated)))
+                    .font(.caption2.weight(.semibold))
+                    .textCase(.uppercase)
+                    .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Color.secondary)
+                Text(day.formatted(.dateTime.day()))
+                    .font(.system(.title3, design: .rounded).weight(.bold))
+                    .foregroundStyle(isSelected ? Color.white : (isToday ? Theme.orange : Color.primary))
+                Circle()
+                    .fill(markedDays.contains(day) ? (isSelected ? Color.white : Theme.orange) : Color.clear)
+                    .frame(width: 6, height: 6)
+            }
+            .frame(width: 50, height: 76)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isSelected ? AnyShapeStyle(Theme.accentGradient) : AnyShapeStyle(Theme.card))
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
