@@ -134,7 +134,6 @@ enum SeedData {
         ("Планка (сек)", "Кор", nil),
     ]
 
-    @MainActor
     static func seedIfNeeded(_ context: ModelContext) {
         let exerciseCount = (try? context.fetchCount(FetchDescriptor<Exercise>())) ?? 0
         if exerciseCount == 0 {

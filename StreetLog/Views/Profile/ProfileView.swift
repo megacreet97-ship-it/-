@@ -1,0 +1,164 @@
+import SwiftData
+import SwiftUI
+
+struct ProfileView: View {
+    @Query private var profiles: [AthleteProfile]
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let profile = profiles.first {
+                    ProfileForm(profile: profile)
+                } else {
+                    ProgressView()
+                }
+            }
+            .navigationTitle("Профиль")
+        }
+    }
+}
+
+struct ProfileForm: View {
+    @Bindable var profile: AthleteProfile
+    @Query(sort: \WorkoutEntry.date) private var entries: [WorkoutEntry]
+    @Query(sort: \MaxAttempt.date) private var attempts: [MaxAttempt]
+
+    private var autoTotal: Binding<Bool> {
+        Binding(
+            get: { profile.targetTotal == 0 },
+            set: { profile.targetTotal = $0 ? 0 : profile.targetPullUp + profile.targetDip }
+        )
+    }
+
+    private var hasCompetition: Binding<Bool> {
+        Binding(
+            get: { profile.competitionDate != nil },
+            set: { enabled in
+                profile.competitionDate = enabled
+                    ? Calendar.current.date(byAdding: .weekOfYear, value: 12, to: .now)
+                    : nil
+            }
+        )
+    }
+
+    private var competitionDate: Binding<Date> {
+        Binding(get: { profile.competitionDate ?? .now }, set: { profile.competitionDate = $0 })
+    }
+
+    var body: some View {
+        Form {
+            Section("Спортсмен") {
+                TextField("Имя", text: $profile.name)
+                WeightField(title: "Вес тела", value: $profile.bodyweight, step: 0.1)
+                LabeledContent("Весовая категория") {
+                    TextField("например, до 80 кг", text: $profile.weightClass)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+
+            Section {
+                WeightField(title: "Подтягивания", value: $profile.targetPullUp)
+                WeightField(title: "Брусья", value: $profile.targetDip)
+                Toggle("Сумма = подтягивания + брусья", isOn: autoTotal)
+                if autoTotal.wrappedValue {
+                    LabeledContent("Сумма", value: Format.kg(profile.targetPullUp + profile.targetDip))
+                } else {
+                    WeightField(title: "Сумма", value: $profile.targetTotal)
+                }
+            } header: {
+                Text("Норматив МС (отягощение)")
+            } footer: {
+                Text("Введите требования для своей весовой категории из действующей ЕВСК или положения о соревнованиях. Если норматив задан только суммой — выключите переключатель и укажите сумму, а по движениям — свои целевые веса.")
+            }
+
+            Section("Соревнования") {
+                Toggle("Дата старта", isOn: hasCompetition)
+                if profile.competitionDate != nil {
+                    DatePicker("Дата", selection: competitionDate, displayedComponents: .date)
+                    TextField("Название турнира", text: $profile.competitionName)
+                }
+            }
+
+            Section {
+                NavigationLink("Упражнения") { ExercisesView() }
+                ShareLink(item: CSVExport.diary(entries), preview: SharePreview("Дневник тренировок (CSV)")) {
+                    Label("Экспорт дневника (CSV)", systemImage: "square.and.arrow.up")
+                }
+                ShareLink(item: CSVExport.attempts(attempts), preview: SharePreview("Попытки на 1ПМ (CSV)")) {
+                    Label("Экспорт попыток (CSV)", systemImage: "square.and.arrow.up")
+                }
+            } header: {
+                Text("Данные")
+            } footer: {
+                Text("Данные хранятся только на iPhone. Делайте экспорт перед удалением приложения.")
+            }
+        }
+    }
+}
+
+struct ExercisesView: View {
+    @Environment(\.modelContext) private var context
+    @Query(sort: [SortDescriptor(\Exercise.category), SortDescriptor(\Exercise.name)]) private var exercises: [Exercise]
+
+    private var categories: [String] {
+        var seen = Set<String>()
+        return exercises.map(\.category).filter { seen.insert($0).inserted }
+    }
+
+    var body: some View {
+        List {
+            ForEach(categories, id: \.self) { category in
+                let items = exercises.filter { $0.category == category }
+                Section(category) {
+                    ForEach(items) { exercise in
+                        HStack {
+                            Text(exercise.name)
+                            Spacer()
+                            if let lift = exercise.lift {
+                                Image(systemName: lift.symbol).foregroundStyle(.tint)
+                            }
+                        }
+                    }
+                    .onDelete { offsets in
+                        for index in offsets { context.delete(items[index]) }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Упражнения")
+        .toolbar {
+            NavigationLink { ExerciseFormView() } label: { Image(systemName: "plus") }
+        }
+    }
+}
+
+enum CSVExport {
+    private static let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
+    }()
+
+    private static func escape(_ value: String) -> String {
+        "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+
+    static func diary(_ entries: [WorkoutEntry]) -> String {
+        var lines = ["date;exercise;sets;reps;added_kg;note"]
+        for entry in entries {
+            lines.append([formatter.string(from: entry.date), escape(entry.exerciseName), "\(entry.sets)",
+                          "\(entry.reps)", "\(entry.addedWeight)", escape(entry.note)].joined(separator: ";"))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    static func attempts(_ attempts: [MaxAttempt]) -> String {
+        var lines = ["date;lift;added_kg;bodyweight_kg;competition;note"]
+        for attempt in attempts {
+            lines.append([formatter.string(from: attempt.date), attempt.lift.rawValue, "\(attempt.addedWeight)",
+                          "\(attempt.bodyweight)", attempt.isCompetition ? "1" : "0", escape(attempt.note)].joined(separator: ";"))
+        }
+        return lines.joined(separator: "\n")
+    }
+}

@@ -25,6 +25,6 @@ struct RootView: View {
             ProfileView()
                 .tabItem { Label("Профиль", systemImage: "person.crop.circle") }
         }
-        .task { SeedData.seedIfNeeded(context) }
+        .onAppear { SeedData.seedIfNeeded(context) }
     }
 }
