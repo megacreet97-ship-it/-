@@ -28,9 +28,9 @@ enum DemoData {
         for week in 0..<12 {
             let offset = -84 + week * 7
             context.insert(MaxAttempt(date: day(offset + 5), lift: .pullUp,
-                                      addedWeight: 30 + Double(week) * 0.9 + (week % 3 == 0 ? -1 : 0), bodyweight: 78))
+                                      addedWeight: AttemptPlanner.round(30 + Double(week) * 0.9 + (week % 3 == 0 ? -1 : 0)), bodyweight: 78))
             context.insert(MaxAttempt(date: day(offset + 5), lift: .dip,
-                                      addedWeight: 45 + Double(week) * 1.1 + (week % 4 == 1 ? -1.25 : 0), bodyweight: 78.5))
+                                      addedWeight: AttemptPlanner.round(45 + Double(week) * 1.1 + (week % 4 == 1 ? -1.25 : 0)), bodyweight: 78.5))
         }
 
         for offset in stride(from: -56, through: 0, by: 1) {
