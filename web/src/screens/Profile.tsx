@@ -48,7 +48,7 @@ export function ProfileScreen() {
   const importBackup = async (file: File) => {
     const parsed = parseBackup(await file.text())
     if (!parsed) {
-      alert('Файл не похож на резервную копию StreetLog')
+      alert('Файл не похож на резервную копию Street')
       return
     }
     if (confirm(`Заменить текущие данные? В копии: ${parsed.entries.length} записей, ${parsed.attempts.length} попыток.`)) {
@@ -188,7 +188,7 @@ export function ProfileScreen() {
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void importBackup(f); e.target.value = '' }} />
 
       <div className="caption" style={{ textAlign: 'center', marginTop: 8 }}>
-        StreetLog · {data.entries.length} записей · {data.attempts.length} попыток · {num(data.exercises.length)} упражнений
+        Street · {data.entries.length} записей · {data.attempts.length} попыток · {num(data.exercises.length)} упражнений
       </div>
 
       {showExercises && <ExercisesSheet onClose={() => setShowExercises(false)} />}
@@ -232,7 +232,7 @@ export function InstallSheet({ onClose }: { onClose: () => void }) {
     ['Откройте эту страницу в Safari', 'Именно Safari: в Chrome и других браузерах на iPhone пункт может называться иначе или отсутствовать.'],
     ['Нажмите «Поделиться»', 'Квадрат со стрелкой вверх — внизу экрана (или справа от адреса). Если панели нет, коснитесь адресной строки.'],
     ['Выберите «На экран Домой»', 'Прокрутите список действий вниз. Включите «Открыть как веб-приложение», если такой переключатель есть.'],
-    ['Нажмите «Добавить»', 'На рабочем столе появится иконка StreetLog. Открывайте приложение с неё — оно работает на весь экран и без интернета.'],
+    ['Нажмите «Добавить»', 'На рабочем столе появится иконка Street. Открывайте приложение с неё — оно работает на весь экран и без интернета.'],
   ]
   return (
     <Sheet title="Установка на iPhone" onClose={onClose} left={<button onClick={onClose}>Закрыть</button>}>

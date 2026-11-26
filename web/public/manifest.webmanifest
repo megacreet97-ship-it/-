@@ -1,6 +1,6 @@
 {
-  "name": "StreetLog — дневник стритлифтинга",
-  "short_name": "StreetLog",
+  "name": "Street",
+  "short_name": "Street",
   "description": "Дневник тренировок и подготовка к нормативу мастера спорта по стритлифтингу",
   "lang": "ru",
   "start_url": "./",
