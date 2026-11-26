@@ -56,6 +56,7 @@ struct MasterView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    GoalSwitchButton(goal: .ms) { showingGoalSettings = true }
                     heroCard
                     HStack(spacing: 12) {
                         ForEach(Lift.allCases) { liftTile($0) }

@@ -163,6 +163,38 @@ struct OptionalNumberRow: View {
 
 // MARK: - Body composition goals
 
+/// Prominent goal button at the top of the goal tab.
+struct GoalSwitchButton: View {
+    let goal: Goal
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: goal.symbol)
+                Text("Цель: \(goal.title)").lineLimit(1)
+                HStack(spacing: 2) {
+                    Text("Сменить")
+                    Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.12), in: Capsule())
+            }
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(goal.color)
+            .padding(.leading, 12)
+            .padding(.trailing, 6)
+            .padding(.vertical, 6)
+            .background(goal.color.opacity(0.15), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 struct FormView: View {
     let goal: Goal
     var openExercises: () -> Void
@@ -210,6 +242,7 @@ struct FormView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    GoalSwitchButton(goal: goal) { showingSettings = true }
                     heroCard
                     metricsRow
                     if let profile, profile.targetWeight > 0, let start = weights.first?.value {
@@ -231,10 +264,6 @@ struct FormView: View {
                         Label("Замер", systemImage: "plus").font(.subheadline.weight(.semibold))
                     }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showingSettings = true } label: { Image(systemName: "target") }
-                        .accessibilityLabel("Настроить цель")
-                }
             }
             .sheet(item: $editing) { draft in
                 MeasurementSheet(measurement: draft.measurement, defaultWeight: currentWeight)
@@ -248,10 +277,6 @@ struct FormView: View {
     private var heroCard: some View {
         let verdict = BodyMath.verdict(goal: goal, weight: weight, weightPerWeek: weightRate, waistPerWeek: waistRate)
         return VStack(alignment: .leading, spacing: 16) {
-            Button { showingSettings = true } label: {
-                Pill(text: "Цель: \(goal.title)", systemImage: goal.symbol, tint: goal.color)
-            }
-            .buttonStyle(.plain)
             HStack(spacing: 18) {
                 ZStack {
                     RingProgress(progress: Double(workoutsThisWeek) / Double(max(weekly, 1)))

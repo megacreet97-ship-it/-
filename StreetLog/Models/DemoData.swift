@@ -79,7 +79,7 @@ struct DemoScreen: Identifiable {
     let id: String
 }
 
-/// Opens a specific screen on launch (`-demoScreen quicklog|standards|copyday`) for simulator screenshots.
+/// Opens a specific screen on launch (`-demoScreen quicklog|standards|copyday|technique`) for simulator screenshots.
 struct DemoScreenView: View {
     let name: String
     @Query(sort: \MaxAttempt.date) private var attempts: [MaxAttempt]
@@ -94,6 +94,11 @@ struct DemoScreenView: View {
         case "standards":
             NavigationStack {
                 StandardsView(initialFederation: .isf, total: best(.pullUp) + best(.dip), pullUp: best(.pullUp), dip: best(.dip))
+            }
+        case "technique":
+            NavigationStack {
+                ExerciseDetailView(exerciseName: "Подтягивания с отягощением")
+                    .navigationDestination(for: String.self) { ExerciseDetailView(exerciseName: $0) }
             }
         case "copyday":
             CopyDaySheet(entries: entries, target: Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now) { _ in }

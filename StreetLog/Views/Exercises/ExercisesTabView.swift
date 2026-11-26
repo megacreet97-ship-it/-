@@ -284,9 +284,10 @@ struct ExerciseLibraryList: View {
     private func listCard(_ items: [(exercise: Exercise, info: ExerciseInfo?)], done: [String: Int]) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, row in
-                if index > 0 { Divider().padding(.leading, 14) }
+                if index > 0 { Divider().padding(.leading, 70) }
                 NavigationLink(value: row.exercise.name) {
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .center, spacing: 12) {
+                        ExerciseThumbnail(photo: row.info?.photo)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(row.exercise.name).font(.subheadline).foregroundStyle(.primary).multilineTextAlignment(.leading)
                             Text(subtitle(row, done: done)).font(.caption).foregroundStyle(.secondary)
@@ -294,7 +295,8 @@ struct ExerciseLibraryList: View {
                         Spacer(minLength: 8)
                         if let rating = row.info?.rating, rating > 0 { RatingStars(rating: rating) }
                     }
-                    .padding(14)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -316,6 +318,17 @@ struct ExerciseInfoSection: View {
     let info: ExerciseInfo
 
     var body: some View {
+        Section("Техника") {
+            if let photo = info.photo {
+                TechniquePhotos(name: name, photo: photo)
+                    .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+            }
+            Link(destination: TechniquePhotos.videoSearchURL(for: name)) {
+                Label("Видео техники на YouTube", systemImage: "play.rectangle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.orange)
+            }
+        }
         Section {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
@@ -371,5 +384,106 @@ struct FlowPills: View {
 
     private var pills: some View {
         ForEach(items, id: \.self) { Pill(text: $0, tint: tint) }
+    }
+}
+
+extension ExerciseInfo {
+    static func photo(_ stem: String, frame: Int) -> UIImage? {
+        UIImage(named: "\(stem)-\(frame).jpg")
+    }
+}
+
+struct ExerciseThumbnail: View {
+    let photo: String?
+
+    var body: some View {
+        Group {
+            if let photo, let image = ExerciseInfo.photo(photo, frame: 1) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Theme.elevated
+            }
+        }
+        .frame(width: 44, height: 44)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+/// Start and end positions from free-exercise-db, alternating like a slow animation.
+struct TechniquePhotos: View {
+    let name: String
+    let photo: String
+
+    @State private var playing = true
+    @State private var manualFrame = 0
+
+    static func videoSearchURL(for name: String) -> URL {
+        let clean = name.replacingOccurrences(of: #"\s*\((сек|мин)\)"#, with: "", options: .regularExpression)
+        var components = URLComponents(string: "https://www.youtube.com/results")!
+        components.queryItems = [URLQueryItem(name: "search_query", value: "\(clean) техника выполнения")]
+        return components.url!
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TimelineView(.periodic(from: .now, by: 1.3)) { context in
+                let frame = playing ? Int(context.date.timeIntervalSinceReferenceDate / 1.3) % 2 : manualFrame
+                ZStack(alignment: .bottomLeading) {
+                    ForEach(0..<2, id: \.self) { index in
+                        if let image = ExerciseInfo.photo(photo, frame: index) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity)
+                                .opacity(frame == index ? 1 : 0)
+                        }
+                    }
+                    Text(frame == 0 ? "1 · Старт" : "2 · Финиш")
+                        .font(.caption.weight(.bold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.black.opacity(0.65), in: Capsule())
+                        .foregroundStyle(.white)
+                        .padding(10)
+                }
+                .frame(maxWidth: .infinity)
+                .aspectRatio(4 / 3, contentMode: .fit)
+                .background(Theme.elevated)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .animation(.easeInOut(duration: 0.35), value: frame)
+                .onTapGesture {
+                    manualFrame = frame
+                    playing.toggle()
+                }
+            }
+            HStack(spacing: 8) {
+                ForEach(0..<2, id: \.self) { index in
+                    Button {
+                        playing = false
+                        manualFrame = index
+                    } label: {
+                        HStack(spacing: 8) {
+                            if let image = ExerciseInfo.photo(photo, frame: index) {
+                                Image(uiImage: image).resizable().scaledToFill()
+                                    .frame(width: 48, height: 36)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            }
+                            Text(index == 0 ? "Старт" : "Финиш").font(.footnote.weight(.semibold))
+                            Spacer(minLength: 0)
+                        }
+                        .padding(6)
+                        .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(!playing && manualFrame == index ? Theme.orange : .clear, lineWidth: 2)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Text("Нажмите на фото, чтобы остановить. Фото: free-exercise-db (общественное достояние) — оборудование может немного отличаться.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }

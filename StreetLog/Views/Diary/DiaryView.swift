@@ -40,24 +40,12 @@ struct DiaryView: View {
             .map { calendar.startOfDay(for: $0.date) }
     }
 
-    /// Most recently used exercises (newest first) with their last entry, for one-tap logging.
-    private var recentExercises: [WorkoutEntry] {
-        var seen = Set<String>()
-        var result: [WorkoutEntry] = []
-        for entry in entries.reversed() where seen.insert(entry.exerciseName).inserted {
-            result.append(entry)
-            if result.count == 8 { break }
-        }
-        return result
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     DayStrip(selected: $selectedDate, markedDays: markedDays)
                     summaryCard
-                    quickAddSection
                     workoutSection
                 }
                 .padding(.horizontal)
@@ -131,30 +119,6 @@ struct DiaryView: View {
     }
 
     @ViewBuilder
-    private var quickAddSection: some View {
-        if !recentExercises.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionTitle(title: "Быстро добавить")
-                ScrollView(.horizontal) {
-                    HStack(spacing: 10) {
-                        ForEach(recentExercises) { entry in
-                            Button {
-                                draft = LogDraft(date: selectedDate, exerciseName: entry.exerciseName)
-                            } label: {
-                                QuickChip(entry: entry)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-                .scrollIndicators(.hidden)
-                .padding(.horizontal, -16)
-            }
-        }
-    }
-
-    @ViewBuilder
     private var workoutSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionTitle(title: "Тренировка", trailing: dayEntries.isEmpty ? nil : "\(dayEntries.count) зап.")
@@ -188,7 +152,7 @@ struct DiaryView: View {
         VStack(spacing: 14) {
             IconBadge(systemImage: "figure.strengthtraining.functional", size: 64)
             Text("Записей пока нет").font(.headline)
-            Text("Нажмите «Добавить упражнение» внизу или выберите упражнение из быстрых кнопок.")
+            Text("Нажмите «Добавить упражнение» внизу — недавние упражнения будут сверху списка.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -391,59 +355,70 @@ struct EntryCard: View {
     }
 }
 
-struct QuickChip: View {
-    let entry: WorkoutEntry
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: entry.lift?.symbol ?? "dumbbell.fill")
-                    .foregroundStyle(entry.lift?.color ?? Theme.orange)
-                Image(systemName: "plus.circle.fill").foregroundStyle(.secondary)
-            }
-            .font(.subheadline)
-            Text(entry.exerciseName)
-                .font(.footnote.weight(.semibold))
-                .lineLimit(2, reservesSpace: true)
-                .multilineTextAlignment(.leading)
-            Text(entry.setsLabel + (entry.addedWeight > 0 ? " · +\(Format.number(entry.addedWeight))" : ""))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(width: 140, alignment: .leading)
-        .padding(12)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-}
-
 struct DayStrip: View {
     @Binding var selected: Date
     let markedDays: Set<Date>
 
+    @State private var position: Date?
+    @State private var choosingDate = false
     private let calendar = Calendar.current
 
     private var days: [Date] {
         let today = calendar.startOfDay(for: .now)
-        return (-56...7).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
+        let first = min(calendar.date(byAdding: .day, value: -56, to: today) ?? today,
+                        calendar.date(byAdding: .day, value: -14, to: calendar.startOfDay(for: selected)) ?? today)
+        let count = calendar.dateComponents([.day], from: first, to: today).day ?? 56
+        return (0...(count + 7)).compactMap { calendar.date(byAdding: .day, value: $0, to: first) }
+    }
+
+    private var monthTitle: String {
+        let text = (position ?? selected).formatted(.dateTime.month(.wide).year())
+        return text.prefix(1).uppercased() + text.dropFirst()
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(monthTitle).font(.headline).contentTransition(.numericText())
+                Spacer()
+                Button { choosingDate = true } label: {
+                    Label("Выбрать дату", systemImage: "calendar").font(.subheadline.weight(.semibold))
+                }
+            }
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     ForEach(days, id: \.self) { day in
-                        dayPill(day).id(day)
+                        HStack(spacing: 8) {
+                            if calendar.component(.day, from: day) == 1 {
+                                Text(day.formatted(.dateTime.month(.abbreviated)))
+                                    .font(.caption2.weight(.heavy))
+                                    .textCase(.uppercase)
+                                    .foregroundStyle(Theme.orange)
+                                    .fixedSize()
+                                    .rotationEffect(.degrees(-90))
+                                    .frame(width: 14)
+                            }
+                            dayPill(day)
+                        }
+                        .id(day)
                     }
                 }
+                .scrollTargetLayout()
                 .padding(.horizontal)
                 .padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
+            .scrollPosition(id: $position, anchor: .center)
             .padding(.horizontal, -16)
-            .onAppear { proxy.scrollTo(calendar.startOfDay(for: selected), anchor: .center) }
+            .frame(height: 84)
+            .onAppear { position = calendar.startOfDay(for: selected) }
             .onChange(of: selected) { _, newValue in
-                withAnimation(.snappy) { proxy.scrollTo(calendar.startOfDay(for: newValue), anchor: .center) }
+                withAnimation(.snappy) { position = calendar.startOfDay(for: newValue) }
             }
+        }
+        .sheet(isPresented: $choosingDate) {
+            DateJumpSheet(selected: $selected)
+                .presentationDetents([.medium, .large])
         }
     }
 
@@ -472,6 +447,39 @@ struct DayStrip: View {
             }
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct DateJumpSheet: View {
+    @Binding var selected: Date
+    @Environment(\.dismiss) private var dismiss
+    @State private var date: Date
+
+    init(selected: Binding<Date>) {
+        _selected = selected
+        _date = State(initialValue: selected.wrappedValue)
+    }
+
+    var body: some View {
+        NavigationStack {
+            DatePicker("Дата", selection: $date, in: ...(Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now), displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .tint(Theme.orange)
+                .padding(.horizontal)
+                .navigationTitle("Выбрать дату")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Готово") {
+                            selected = Calendar.current.startOfDay(for: date)
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    }
+                }
+            Spacer()
+        }
     }
 }
 
