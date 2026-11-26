@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '../icons'
 import {
-  addDays, currentStreak, dailyProgress, dayMonthYear, exerciseTotals, itemReps, itemTonnage, kg, longestStreak, num,
-  setsLabel, startOfDay, totalReps, totalSets, trainingDays, weeklySum, type ExerciseTotal,
+  addDays, currentStreak, exerciseTotals, itemReps, itemTonnage, kg, longestStreak, num,
+  startOfDay, totalReps, totalSets, trainingDays, weeklySum, type ExerciseTotal,
 } from '../logic'
 import { useData } from '../store'
 import { toLogItems } from '../derived'
 import { BarChart } from '../charts'
-import { C, Card, IconBadge, ProgressBar, Segmented, Sheet, StatTile, liftColor, liftIcon } from '../ui'
+import { C, Card, IconBadge, ProgressBar, Segmented, StatTile, liftColor, liftIcon } from '../ui'
+import { ExerciseDetail } from './ExerciseDetail'
 
 type Period = 28 | 90 | 365 | 0
 
@@ -63,7 +64,7 @@ export function AnalyticsScreen() {
         ))}
       </Card>
 
-      {detail && <ExerciseDetail name={detail} onClose={() => setDetail(null)} />}
+      {detail && <ExerciseDetail key={detail} name={detail} onClose={() => setDetail(null)} onOpen={setDetail} />}
     </div>
   )
 }
@@ -83,37 +84,5 @@ function ExerciseRow({ total, max, lift, onClick }: { total: ExerciseTotal; max:
       </div>
       <Icon name="chevronRight" size={16} className="tertiary" />
     </button>
-  )
-}
-
-function ExerciseDetail({ name, onClose }: { name: string; onClose: () => void }) {
-  const data = useData()
-  const entries = data.entries.filter((e) => e.exerciseName === name)
-  const items = toLogItems(entries)
-  const progress = dailyProgress(items, name)
-  const weighted = items.some((i) => i.addedWeight > 0)
-  const total = exerciseTotals(items)[0]
-  const lastEntries = entries.slice(-10).reverse()
-
-  return (
-    <Sheet title={name} onClose={onClose} left={<button onClick={onClose}>Закрыть</button>}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <StatTile title="Тренировки" value={String(total?.sessions ?? 0)} color={C.orange} />
-        <StatTile title="Повторения" value={num(total?.totalReps ?? 0)} color={C.violet} />
-        <StatTile title="Подходы" value={num(total?.totalSets ?? 0)} color={C.blue} />
-        <StatTile title="Макс. вес" value={total?.maxWeight ? `+${num(total.maxWeight)}` : '—'} color={C.green} />
-      </div>
-      <Card title={weighted ? 'Лучший вес за день, кг' : 'Повторений за день'} icon="chart">
-        <BarChart data={progress.slice(-16)} color={C.orange} />
-      </Card>
-      <Card title="Последние записи" icon="clock">
-        {lastEntries.map((e) => (
-          <div key={e.id} className="row between">
-            <span className="footnote">{dayMonthYear(e.date)}</span>
-            <span className="subhead num" style={{ fontWeight: 700 }}>{setsLabel(e)}{e.addedWeight > 0 ? ` · +${kg(e.addedWeight)}` : ''}</span>
-          </div>
-        ))}
-      </Card>
-    </Sheet>
   )
 }

@@ -3,10 +3,12 @@ import { Icon } from '../icons'
 import {
   FEDERATIONS, RANKS, classFor, classTitle, classesFor, federationTitle, kg, num, rankTitle, type Federation, type SportRank,
 } from '../logic'
-import { actions, exportCSV, parseBackup, useData } from '../store'
+import { actions, effectiveGoal, exportCSV, parseBackup, useData } from '../store'
 import { C, IconBadge, NumberField, Segmented, Sheet, alpha, fromDateInput, liftColor, liftIcon, toDateInput, useToast } from '../ui'
 import { ExerciseForm } from './QuickLog'
 import { compareCategories } from '../exerciseLibrary'
+import { goalTitle } from '../body'
+import { GoalSettingsSheet, GoalTargets, goalColor, goalIcon } from './GoalSettings'
 
 async function shareFile(name: string, text: string, mime: string) {
   const file = new File([text], name, { type: mime })
@@ -34,6 +36,9 @@ export function ProfileScreen() {
   const { profile } = data
   const [showExercises, setShowExercises] = useState(false)
   const [showInstall, setShowInstall] = useState(false)
+  const [showGoal, setShowGoal] = useState(false)
+  const goal = effectiveGoal(data)
+  const isMS = goal === 'ms'
   const [toast, showToast] = useToast()
   const fileInput = useRef<HTMLInputElement>(null)
   const suggested = classFor(profile.bodyweight, profile.federation)
@@ -63,7 +68,7 @@ export function ProfileScreen() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <input value={profile.name} placeholder="Ваше имя" onChange={(e) => actions.updateProfile({ name: e.target.value })}
             style={{ background: 'transparent', border: 0, outline: 'none', fontSize: 22, fontWeight: 800, width: '100%' }} />
-          <div className="footnote">{profile.weightClass || 'своя цель'} · цель {rankTitle[profile.goalRank]} · {federationTitle[profile.federation]}</div>
+          <div className="footnote">{isMS ? `${profile.weightClass || 'своя цель'} · цель ${rankTitle[profile.goalRank]} · ${federationTitle[profile.federation]}` : `${goal ? goalTitle[goal] : 'цель не выбрана'} · ${kg(profile.bodyweight)}`}</div>
         </div>
       </section>
 
@@ -82,13 +87,25 @@ export function ProfileScreen() {
       <div className="field-group">
         <NumberField label="Вес тела" value={profile.bodyweight} onChange={(v) => actions.updateProfile({ bodyweight: v })} />
       </div>
-      {suggested && suggested.limit !== profile.weightClassLimit && (
+      {!isMS && (data.bodyLogs?.length ?? 0) > 0 && <div className="group-footer">Вес обновляется из последнего замера на вкладке «Моя форма».</div>}
+      {isMS && suggested && suggested.limit !== profile.weightClassLimit && (
         <button className="group-footer" style={{ color: C.orange, textAlign: 'left' }} onClick={() => actions.updateProfile({ weightClassLimit: suggested.limit }, true)}>
           С весом {kg(profile.bodyweight)} вы в категории {classTitle(suggested)} — выбрать её целью
         </button>
       )}
 
       <div className="group-label">Цель</div>
+      <div className="field-group">
+        <button className="list-row" onClick={() => setShowGoal(true)}>
+          {goal ? <IconBadge icon={goalIcon[goal]} color={goalColor[goal]} size={30} /> : <IconBadge icon="target" color={C.orange} size={30} />}
+          <span style={{ flex: 1 }}>{goal ? goalTitle[goal] : 'Выбрать цель'}</span>
+          <span className="secondary">Изменить</span><Icon name="chevronRight" size={16} className="tertiary" />
+        </button>
+      </div>
+      {goal && !isMS && <GoalTargets />}
+
+      {isMS && <>
+      <div className="group-label">Норматив МС</div>
       <div className="card" style={{ gap: 12 }}>
         <div className="caption">Федерация</div>
         <Segmented<Federation> options={FEDERATIONS.map((f) => ({ value: f, label: federationTitle[f] }))} value={profile.federation}
@@ -148,6 +165,7 @@ export function ProfileScreen() {
           <button className="list-row" style={{ color: C.pink }} onClick={() => actions.updateProfile({ competitionDate: null })}>Убрать дату</button>
         )}
       </div>
+      </>}
 
       <div className="group-label">Данные</div>
       <div className="field-group">
@@ -175,6 +193,7 @@ export function ProfileScreen() {
 
       {showExercises && <ExercisesSheet onClose={() => setShowExercises(false)} />}
       {showInstall && <InstallSheet onClose={() => setShowInstall(false)} />}
+      {showGoal && <GoalSettingsSheet onClose={() => setShowGoal(false)} />}
       {toast}
     </div>
   )

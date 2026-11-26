@@ -2,7 +2,8 @@ import {
   classFor, dailyMax, estimatedAddedWeight, lookupStandard, makeForecast, trendValue,
   type DatedValue, type Lift, type LiftForecast, type LogItem, type WeightClassStandard,
 } from './logic'
-import type { AppData, Entry, Profile } from './store'
+import type { AppData, Entry, Exercise, Profile } from './store'
+import { infoFor, type ExerciseInfo } from './muscles'
 
 export const toLogItems = (entries: Entry[]): LogItem[] =>
   entries.map((e) => ({ date: e.date, exercise: e.exerciseName, reps: e.reps, sets: e.sets, addedWeight: e.addedWeight, setReps: e.setReps }))
@@ -77,4 +78,17 @@ export function lastEntryFor(entries: Entry[], name: string, before = Infinity):
     if (entries[i].exerciseName === name && entries[i].date < before) return entries[i]
   }
   return undefined
+}
+
+/** Describes any exercise name: library data first, then the category of the user's own exercise. */
+export function infoLookup(exercises: Exercise[]): (name: string) => ExerciseInfo | null {
+  const byName = new Map(exercises.map((e) => [e.name, e]))
+  const cache = new Map<string, ExerciseInfo | null>()
+  return (name) => {
+    if (!cache.has(name)) {
+      const exercise = byName.get(name)
+      cache.set(name, infoFor(name, exercise?.category, exercise?.lift))
+    }
+    return cache.get(name) ?? null
+  }
 }

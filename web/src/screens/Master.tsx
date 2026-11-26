@@ -14,6 +14,7 @@ import {
   BigStepper, C, Card, IconBadge, NumberField, Pill, ProgressBar, Ring, Segmented, Sheet, Switch, alpha, fromDateInput,
   liftColor, liftIcon, rankColor, toDateInput,
 } from '../ui'
+import { GoalSettingsSheet } from './GoalSettings'
 
 export function MasterScreen() {
   const data = useData()
@@ -22,6 +23,7 @@ export function MasterScreen() {
   const [editing, setEditing] = useState<Attempt | 'new' | null>(null)
   const [showStandards, setShowStandards] = useState(false)
   const [showAllAttempts, setShowAllAttempts] = useState(false)
+  const [changingGoal, setChangingGoal] = useState(false)
 
   const best = { pullUp: bestLift(data, 'pullUp'), dip: bestLift(data, 'dip') }
   const total = best.pullUp + best.dip
@@ -163,6 +165,11 @@ export function MasterScreen() {
       </Card>
 
       <InfoCard />
+
+      <button className="link" style={{ justifyContent: 'center', gap: 6 }} onClick={() => setChangingGoal(true)}>
+        <Icon name="target" size={16} /> Другая цель: похудение, рекомпозиция, набор мышц
+      </button>
+      {changingGoal && <GoalSettingsSheet onClose={() => setChangingGoal(false)} />}
 
       {editing && <AttemptEditor attempt={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       {showStandards && <StandardsSheet initial={profile.federation} total={total} pullUp={best.pullUp} dip={best.dip} onClose={() => setShowStandards(false)} />}

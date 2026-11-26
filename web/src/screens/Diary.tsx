@@ -3,10 +3,12 @@ import { Icon } from '../icons'
 import { addDays, itemReps, itemTonnage, kg, longDay, num, setsLabel, startOfDay, weekdayShort, dayMonth } from '../logic'
 import { actions, useData, type Entry } from '../store'
 import { recentExercises, toLogItems } from '../derived'
-import { C, IconBadge, alpha, liftColor, liftIcon, useToast } from '../ui'
+import { C, IconBadge, Pill, Sheet, alpha, liftColor, liftIcon, useToast } from '../ui'
 import { QuickLogSheet, atCurrentTime, type LogDraft } from './QuickLog'
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+const lastWeekday = ['в прошлое воскресенье', 'в прошлый понедельник', 'в прошлый вторник', 'в прошлую среду', 'в прошлый четверг', 'в прошлую пятницу', 'в прошлую субботу']
 
 export function DiaryScreen() {
   const data = useData()
@@ -14,12 +16,18 @@ export function DiaryScreen() {
   const [selected, setSelected] = useState(today)
   const [draft, setDraft] = useState<LogDraft | null>(null)
   const [toast, showToast] = useToast()
+  const [copying, setCopying] = useState(false)
 
   const dayEntries = useMemo(() => data.entries.filter((e) => startOfDay(e.date) === selected), [data.entries, selected])
   const recent = useMemo(() => recentExercises(data.entries), [data.entries])
   const daysWithEntries = useMemo(() => new Set(data.entries.map((e) => startOfDay(e.date))), [data.entries])
   const previousDay = useMemo(() => {
     const before = [...daysWithEntries].filter((d) => d < selected).sort((a, b) => b - a)
+    return before[0] ?? null
+  }, [daysWithEntries, selected])
+  const sameWeekdayDay = useMemo(() => {
+    const weekday = new Date(selected).getDay()
+    const before = [...daysWithEntries].filter((d) => d < selected && new Date(d).getDay() === weekday).sort((a, b) => b - a)
     return before[0] ?? null
   }, [daysWithEntries, selected])
 
@@ -29,9 +37,8 @@ export function DiaryScreen() {
   const tonnage = dayItems.reduce((a, i) => a + itemTonnage(i), 0)
 
   const repeatDay = (day: number) => {
-    const source = data.entries.filter((e) => startOfDay(e.date) === day)
-    source.forEach((e, i) => actions.addEntry({ ...e, date: atCurrentTime(selected) + i * 1000, note: '' }))
-    showToast(`Добавлено упражнений: ${source.length}`)
+    const count = actions.copyDay(day, atCurrentTime(selected))
+    showToast(`Скопировано упражнений: ${count}`)
   }
 
   const addSet = (entry: Entry) => {
@@ -93,9 +100,19 @@ export function DiaryScreen() {
           <IconBadge icon="calendar" color={C.orange} size={56} />
           <div className="headline">Нет записей за этот день</div>
           <div className="footnote">Нажмите «Добавить упражнение» внизу или выберите упражнение из быстрых.</div>
-          {previousDay !== null && (
+          {sameWeekdayDay !== null && (
+            <button className="btn-secondary" style={{ color: C.orange }} onClick={() => repeatDay(sameWeekdayDay)}>
+              <Icon name="repeat" size={16} /> Как {lastWeekday[new Date(selected).getDay()]} · {dayMonth(sameWeekdayDay)}
+            </button>
+          )}
+          {previousDay !== null && previousDay !== sameWeekdayDay && (
             <button className="btn-secondary" style={{ color: C.orange }} onClick={() => repeatDay(previousDay)}>
-              <Icon name="repeat" size={16} /> Повторить тренировку от {dayMonth(previousDay)}
+              <Icon name="repeat" size={16} /> Повторить от {dayMonth(previousDay)}
+            </button>
+          )}
+          {daysWithEntries.size > 0 && (
+            <button className="link" style={{ justifyContent: 'center', gap: 6 }} onClick={() => setCopying(true)}>
+              <Icon name="copy" size={16} /> Выбрать другой день
             </button>
           )}
         </div>
@@ -104,6 +121,11 @@ export function DiaryScreen() {
           {dayEntries.map((e) => (
             <EntryCard key={e.id} entry={e} onOpen={() => setDraft({ date: selected, entry: e })} onAddSet={() => addSet(e)} />
           ))}
+          {daysWithEntries.size > 1 && (
+            <button className="link" style={{ justifyContent: 'center', gap: 6 }} onClick={() => setCopying(true)}>
+              <Icon name="copy" size={16} /> Скопировать из другого дня
+            </button>
+          )}
         </div>
       )}
 
@@ -113,6 +135,10 @@ export function DiaryScreen() {
         </button>
       </div>
 
+      {copying && (
+        <CopyDaySheet entries={data.entries} target={selected} onClose={() => setCopying(false)}
+          onPick={(day) => { repeatDay(day); setCopying(false) }} />
+      )}
       {draft && <QuickLogSheet draft={draft} onClose={() => setDraft(null)} onSaved={showToast} />}
       {toast}
     </div>
@@ -172,3 +198,50 @@ function EntryCard({ entry, onOpen, onAddSet }: { entry: Entry; onOpen: () => vo
     </div>
   )
 }
+
+function CopyDaySheet({ entries, target, onPick, onClose }: { entries: Entry[]; target: number; onPick: (day: number) => void; onClose: () => void }) {
+  const weekday = new Date(target).getDay()
+  const [sameOnly, setSameOnly] = useState(false)
+  const days = useMemo(() => {
+    const byDay = new Map<number, Entry[]>()
+    for (const e of entries) {
+      const day = startOfDay(e.date)
+      if (day === target) continue
+      byDay.set(day, [...(byDay.get(day) ?? []), e])
+    }
+    return [...byDay.entries()].sort((a, b) => b[0] - a[0]).slice(0, 90)
+  }, [entries, target])
+  const sameCount = days.filter(([d]) => new Date(d).getDay() === weekday).length
+  const shown = sameOnly ? days.filter(([d]) => new Date(d).getDay() === weekday) : days
+  return (
+    <Sheet title="Скопировать тренировку" onClose={onClose}>
+      <div className="footnote">Упражнения выбранного дня добавятся {target === startOfDay(Date.now()) ? 'в сегодня' : `в ${dayMonth(target)}`} с теми же подходами и весами — потом их можно поменять.</div>
+      {sameCount > 0 && sameCount < days.length && (
+        <div className="h-scroll chips">
+          <button className={`chip ${!sameOnly ? 'active' : ''}`} onClick={() => setSameOnly(false)}>Все дни</button>
+          <button className={`chip ${sameOnly ? 'active' : ''}`} onClick={() => setSameOnly(true)}>Только {weekdayLong[weekday]}</button>
+        </div>
+      )}
+      <div className="stack" style={{ gap: 10 }}>
+        {shown.map(([day, list]) => {
+          const sorted = [...list].sort((a, b) => a.date - b.date)
+          const sets = sorted.reduce((a, e) => a + e.sets, 0)
+          return (
+            <button key={day} className="card" style={{ textAlign: 'left', gap: 8, padding: 14 }} onClick={() => onPick(day)}>
+              <div className="row between">
+                <span className="headline">{capitalize(longDay(day))}</span>
+                {new Date(day).getDay() === weekday && <Pill text="тот же день недели" color={C.orange} />}
+              </div>
+              <div className="caption">{sorted.length} упр. · {sets} подх.</div>
+              <div className="footnote" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {sorted.map((e) => `${e.exerciseName} ${setsLabel(e)}${e.addedWeight > 0 ? ` +${num(e.addedWeight)}` : ''}`).join(' · ')}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </Sheet>
+  )
+}
+
+const weekdayLong = ['воскресенья', 'понедельники', 'вторники', 'среды', 'четверги', 'пятницы', 'субботы']

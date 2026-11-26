@@ -3,6 +3,7 @@ import {
   addDays, lookupStandard, roundTo, splitTotal, startOfDay, type Federation, type Lift, type SportRank,
 } from './logic'
 import { EXERCISE_LIBRARY, LIBRARY_VERSION } from './exerciseLibrary'
+import type { BodyLog, Goal } from './body'
 
 export interface Exercise {
   id: string
@@ -48,6 +49,11 @@ export interface Profile {
   /** Upper limit of a class from STANDARDS; 0 means custom targets. */
   weightClassLimit: number
   goalRank: SportRank
+  /** Unset for new users until they pick one; see `effectiveGoal`. */
+  goal?: Goal
+  targetWeight?: number
+  targetWaist?: number
+  weeklyWorkouts?: number
 }
 
 export interface AppData {
@@ -58,6 +64,19 @@ export interface AppData {
   profile: Profile
   /** Version of EXERCISE_LIBRARY already merged into exercises. */
   libraryVersion?: number
+  bodyLogs?: BodyLog[]
+}
+
+/** Users from before goals existed and anyone with streetlifting data keep the МС screen. */
+export function effectiveGoal(data: AppData): Goal | null {
+  if (data.profile.goal) return data.profile.goal
+  return data.attempts.length > 0 || data.entries.some((e) => e.lift) ? 'ms' : null
+}
+
+const withLatestBodyweight = (d: AppData, bodyLogs: BodyLog[]): AppData => {
+  const sorted = [...bodyLogs].sort((a, b) => a.date - b.date)
+  const latest = sorted[sorted.length - 1]
+  return { ...d, bodyLogs: sorted, profile: latest ? { ...d.profile, bodyweight: latest.weight } : d.profile }
 }
 
 const STORAGE_KEY = 'streetlog.v1'
@@ -139,7 +158,9 @@ function load(): AppData {
     // Corrupted storage falls back to a fresh dataset.
   }
   const data = initialData()
-  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo')) seedDemo(data)
+  const demo = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('demo') : null
+  if (demo === 'recomp') seedRecompDemo(data)
+  else if (demo !== null) seedDemo(data)
   return data
 }
 
@@ -209,6 +230,24 @@ export const actions = {
       return { ...d, profile: reapplyStandard ? applyStandard(profile) : profile }
     })
   },
+  addBodyLog(log: Omit<BodyLog, 'id'>) {
+    update((d) => withLatestBodyweight(d, [...(d.bodyLogs ?? []), { ...log, id: uid() }]))
+  },
+  updateBodyLog(id: string, patch: Partial<BodyLog>) {
+    update((d) => withLatestBodyweight(d, (d.bodyLogs ?? []).map((l) => (l.id === id ? { ...l, ...patch } : l))))
+  },
+  deleteBodyLog(id: string) {
+    update((d) => withLatestBodyweight(d, (d.bodyLogs ?? []).filter((l) => l.id !== id)))
+  },
+  /** Copies every exercise of `sourceDay` to the moment `at`, keeping their order. Returns how many were copied. */
+  copyDay(sourceDay: number, at: number): number {
+    const source = state.entries.filter((e) => startOfDay(e.date) === sourceDay).sort((a, b) => a.date - b.date)
+    update((d) => ({
+      ...d,
+      entries: [...d.entries, ...source.map((e, i) => ({ ...e, id: uid(), date: at + i * 1000, note: '' }))].sort((a, b) => a.date - b.date),
+    }))
+    return source.length
+  },
   replaceAll(data: AppData) {
     update(() => mergeLibrary(data))
   },
@@ -253,5 +292,35 @@ function seedDemo(data: AppData) {
     data.entries.push({ id: uid(), date: at(offset, 15), exerciseName: 'Отжимания на брусьях с отягощением', lift: 'dip', reps: 5, sets: 4, addedWeight: roundTo(50 + 8 * progress), note: '' })
     data.entries.push({ id: uid(), date: at(offset, 30), exerciseName: weekday === 3 ? 'Подтягивания широким хватом' : 'Отжимания от пола', lift: null, reps: weekday === 3 ? 10 : 25, sets: 3, addedWeight: 0, note: '' })
     data.entries.push({ id: uid(), date: at(offset, 45), exerciseName: 'Подъём ног в висе', lift: null, reps: 12, sets: 3, addedWeight: 0, note: '' })
+  }
+}
+
+function seedRecompDemo(data: AppData) {
+  const today = startOfDay(Date.now())
+  const at = (offset: number, minutes = 0) => addDays(today, offset) + (8 * 60 + minutes) * 60_000
+  data.profile = { ...data.profile, name: 'Аня', bodyweight: 62, goal: 'recomp', targetWeight: 60, targetWaist: 68, weeklyWorkouts: 3 }
+  data.bodyLogs = []
+  for (let offset = -42; offset <= 0; offset += 3) {
+    const t = (offset + 42) / 42
+    data.bodyLogs.push({
+      id: uid(), date: at(offset), weight: Math.round((63 - 0.8 * t + Math.sin(offset) * 0.3) * 10) / 10,
+      ...(offset % 7 === 0 || offset === 0 ? { waist: Math.round((74 - 3 * t) * 2) / 2 } : {}),
+    })
+  }
+  data.profile.bodyweight = data.bodyLogs[data.bodyLogs.length - 1].weight
+  const plan: [string, number, number, number][][] = [
+    [['Приседания со штангой', 10, 3, 20], ['Ягодичный мост со штангой', 12, 3, 30], ['Выпады с гантелями', 10, 3, 6], ['Планка (сек)', 45, 3, 0]],
+    [['Тяга верхнего блока к груди', 12, 3, 25], ['Жим гантелей сидя', 10, 3, 5], ['Махи гантелями в стороны (разводка на средние дельты)', 15, 3, 3], ['Сгибания с гантелями стоя', 12, 3, 4]],
+    [['Румынская тяга с гантелями', 12, 3, 10], ['Болгарские сплит-приседания', 10, 3, 4], ['Отведение ноги назад на блоке', 15, 3, 10], ['Бег (мин)', 20, 1, 0]],
+  ]
+  for (let offset = -42; offset <= 0; offset++) {
+    const weekday = new Date(addDays(today, offset)).getDay()
+    const index = [1, 3, 5].indexOf(weekday)
+    if (index === -1) continue
+    const progress = (offset + 42) / 42
+    plan[index].forEach(([exerciseName, reps, sets, weight], i) => {
+      const addedWeight = weight > 0 ? roundTo(weight * (1 + 0.25 * progress), weight >= 10 ? 2.5 : 1) : 0
+      data.entries.push({ id: uid(), date: at(offset, 600 + i * 10), exerciseName, lift: null, reps, sets, addedWeight, note: '' })
+    })
   }
 }
