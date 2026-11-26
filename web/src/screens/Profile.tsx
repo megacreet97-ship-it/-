@@ -6,6 +6,7 @@ import {
 import { actions, exportCSV, parseBackup, useData } from '../store'
 import { C, IconBadge, NumberField, Segmented, Sheet, alpha, fromDateInput, liftColor, liftIcon, toDateInput, useToast } from '../ui'
 import { ExerciseForm } from './QuickLog'
+import { compareCategories } from '../exerciseLibrary'
 
 async function shareFile(name: string, text: string, mime: string) {
   const file = new File([text], name, { type: mime })
@@ -182,7 +183,7 @@ export function ProfileScreen() {
 function ExercisesSheet({ onClose }: { onClose: () => void }) {
   const data = useData()
   const [creating, setCreating] = useState(false)
-  const categories = [...new Set(data.exercises.map((e) => e.category))]
+  const categories = [...new Set(data.exercises.map((e) => e.category))].sort(compareCategories)
   return (
     <Sheet title="Упражнения" onClose={onClose} left={<button onClick={onClose}>Закрыть</button>}
       right={<button onClick={() => setCreating(true)} aria-label="Новое упражнение"><Icon name="plus" /></button>}>

@@ -149,30 +149,10 @@ final class AthleteProfile {
 }
 
 enum SeedData {
-    static let exercises: [(String, String, Lift?)] = [
-        ("Подтягивания с отягощением", "Стритлифтинг", .pullUp),
-        ("Отжимания на брусьях с отягощением", "Стритлифтинг", .dip),
-        ("Подтягивания", "Турник", nil),
-        ("Подтягивания широким хватом", "Турник", nil),
-        ("Подтягивания обратным хватом", "Турник", nil),
-        ("Негативные подтягивания", "Турник", nil),
-        ("Отжимания на брусьях", "Брусья", nil),
-        ("Отжимания от пола", "Брусья", nil),
-        ("Тяга штанги в наклоне", "Подсобка", nil),
-        ("Жим лёжа", "Подсобка", nil),
-        ("Французский жим", "Подсобка", nil),
-        ("Сгибания на бицепс", "Подсобка", nil),
-        ("Подъём ног в висе", "Кор", nil),
-        ("Планка (сек)", "Кор", nil),
-    ]
+    private static let libraryVersionKey = "exerciseLibraryVersion"
 
     static func seedIfNeeded(_ context: ModelContext) {
-        let exerciseCount = (try? context.fetchCount(FetchDescriptor<Exercise>())) ?? 0
-        if exerciseCount == 0 {
-            for (name, category, lift) in exercises {
-                context.insert(Exercise(name: name, category: category, lift: lift))
-            }
-        }
+        mergeLibraryIfNeeded(context)
         let profileCount = (try? context.fetchCount(FetchDescriptor<AthleteProfile>())) ?? 0
         if profileCount == 0 {
             let profile = AthleteProfile()
@@ -181,5 +161,23 @@ enum SeedData {
             context.insert(profile)
         }
         try? context.save()
+    }
+
+    /// Adds library exercises the user doesn't have yet and moves known ones into the current categories.
+    static func mergeLibraryIfNeeded(_ context: ModelContext) {
+        let defaults = UserDefaults.standard
+        guard defaults.integer(forKey: libraryVersionKey) < ExerciseLibrary.version else { return }
+        let existing = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+        var known = Set<String>()
+        let library = Dictionary(ExerciseLibrary.all.map { ($0.name.lowercased(), $0.category) }, uniquingKeysWith: { first, _ in first })
+        for exercise in existing {
+            let key = exercise.name.lowercased()
+            known.insert(key)
+            if let category = library[key] { exercise.category = category }
+        }
+        for item in ExerciseLibrary.all where !known.contains(item.name.lowercased()) {
+            context.insert(Exercise(name: item.name, category: item.category, lift: item.lift))
+        }
+        defaults.set(ExerciseLibrary.version, forKey: libraryVersionKey)
     }
 }

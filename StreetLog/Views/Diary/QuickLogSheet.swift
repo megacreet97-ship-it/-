@@ -226,23 +226,37 @@ struct ExercisePickerView: View {
     @Query(sort: [SortDescriptor(\Exercise.category), SortDescriptor(\Exercise.name)]) private var exercises: [Exercise]
     @Binding var selection: String
     @State private var search = ""
+    @State private var categoryFilter: String?
+
+    private var allCategories: [String] {
+        Array(Set(exercises.map(\.category))).sorted(by: ExerciseLibrary.areInOrder)
+    }
 
     private var filtered: [Exercise] {
-        search.isEmpty ? exercises : exercises.filter { $0.name.localizedCaseInsensitiveContains(search) }
+        if !search.isEmpty { return exercises.filter { $0.name.localizedCaseInsensitiveContains(search) } }
+        guard let categoryFilter else { return exercises }
+        return exercises.filter { $0.category == categoryFilter }
     }
 
     private var categories: [String] {
-        var seen = Set<String>()
-        let all = filtered.map(\.category).filter { seen.insert($0).inserted }
-        return all.sorted { lhs, rhs in
-            if lhs == "Стритлифтинг" { return true }
-            if rhs == "Стритлифтинг" { return false }
-            return lhs < rhs
-        }
+        Array(Set(filtered.map(\.category))).sorted(by: ExerciseLibrary.areInOrder)
     }
 
     var body: some View {
         List {
+            if search.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        chip("Все", isOn: categoryFilter == nil) { categoryFilter = nil }
+                        ForEach(allCategories, id: \.self) { category in
+                            chip(category, isOn: categoryFilter == category) { categoryFilter = category }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                .listRowBackground(Color.clear)
+            }
             ForEach(categories, id: \.self) { category in
                 Section(category) {
                     ForEach(filtered.filter { $0.category == category }) { exercise in
@@ -274,9 +288,23 @@ struct ExercisePickerView: View {
                 }
             }
         }
-        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "Поиск упражнения")
+        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "Поиск среди \(exercises.count) упражнений")
         .navigationTitle("Упражнение")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func chip(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .foregroundStyle(isOn ? Color.white : Color.secondary)
+                .background {
+                    Capsule().fill(isOn ? AnyShapeStyle(Theme.accentGradient) : AnyShapeStyle(Theme.card))
+                }
+        }
+        .buttonStyle(.plain)
     }
 }
 

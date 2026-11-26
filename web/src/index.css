@@ -622,3 +622,25 @@ details p { margin: 6px 0 0; }
   z-index: 60;
   animation: fade 0.2s ease;
 }
+
+.chips { gap: 8px; }
+
+.chip {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--secondary);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip.active { background: var(--gradient); color: #fff; }
+
+.sheet-body > * { flex-shrink: 0; }
+
+.stepper-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stepper-grid .stepper { padding: 14px 12px; }
+.stepper-grid .round-btn { width: 42px; height: 42px; }
+.stepper-grid .value { font-size: 34px; }

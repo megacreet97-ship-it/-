@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../icons'
 import { dayMonth, estimatedAddedWeight, kg, liftFullTitle, type Lift } from '../logic'
 import { actions, useData, type Entry } from '../store'
-import { lastEntryFor } from '../derived'
+import { lastEntryFor, recentExercises } from '../derived'
+import { EXERCISE_CATEGORIES, compareCategories } from '../exerciseLibrary'
 import { BigStepper, C, IconBadge, Segmented, Sheet, Switch, alpha, liftColor, liftIcon } from '../ui'
 
 export interface LogDraft {
@@ -120,7 +121,7 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="stepper-grid">
         <BigStepper title="Подходы" value={sets} onChange={setSets} min={1} max={50} />
         <BigStepper title="Повторения" value={reps} onChange={setReps} min={1} max={500} />
       </div>
@@ -184,31 +185,55 @@ export function ExercisePicker({ selected, onPick, onClose }: { selected: string
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
 
+  const [category, setCategory] = useState<string | null>(null)
+  const q = query.trim().toLowerCase()
+
+  const categories = useMemo(() => [...new Set(data.exercises.map((e) => e.category))].sort(compareCategories), [data.exercises])
+  const recent = useMemo(() => recentExercises(data.entries, 6).map((e) => e.exerciseName), [data.entries])
+
   const groups = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const filtered = data.exercises.filter((e) => !q || e.name.toLowerCase().includes(q))
+    const filtered = data.exercises.filter((e) => (q ? e.name.toLowerCase().includes(q) : !category || e.category === category))
     const map = new Map<string, typeof filtered>()
     for (const e of filtered) map.set(e.category, [...(map.get(e.category) ?? []), e])
-    return [...map.entries()].sort(([a], [b]) => (a === 'Стритлифтинг' ? -1 : b === 'Стритлифтинг' ? 1 : a.localeCompare(b)))
-  }, [data.exercises, query])
+    return [...map.entries()].sort(([a], [b]) => compareCategories(a, b))
+  }, [data.exercises, q, category])
+
+  const row = (name: string, lift: Lift | null, key: string) => (
+    <button key={key} className="list-row" onClick={() => onPick(name)}>
+      <IconBadge icon={lift ? liftIcon[lift] : 'dumbbell'} color={lift ? liftColor[lift] : C.orange} size={30} />
+      <span style={{ flex: 1 }}>{name}</span>
+      {name === selected && <Icon name="check" size={18} style={{ color: C.orange }} />}
+    </button>
+  )
 
   return (
     <Sheet title="Упражнение" onClose={onClose} right={<button onClick={() => setCreating(true)} aria-label="Новое упражнение"><Icon name="plus" /></button>}>
       <div className="text-input row" style={{ padding: '10px 14px' }}>
         <Icon name="search" size={18} className="secondary" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск" style={{ background: 'transparent', border: 0, outline: 'none', flex: 1, fontSize: 16 }} />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Поиск среди ${data.exercises.length} упражнений`} style={{ background: 'transparent', border: 0, outline: 'none', flex: 1, fontSize: 16 }} />
+        {query && <button onClick={() => setQuery('')} aria-label="Очистить"><Icon name="close" size={16} className="secondary" /></button>}
       </div>
-      {groups.map(([category, items]) => (
-        <div key={category} className="stack" style={{ gap: 8 }}>
-          <div className="group-label" style={{ margin: '4px 16px 0' }}>{category}</div>
+      {!q && (
+        <div className="h-scroll chips">
+          <button className={`chip ${category === null ? 'active' : ''}`} onClick={() => setCategory(null)}>Все</button>
+          {categories.map((c) => (
+            <button key={c} className={`chip ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)}>{c}</button>
+          ))}
+        </div>
+      )}
+      {!q && !category && recent.length > 0 && (
+        <div className="stack" style={{ gap: 8 }}>
+          <div className="group-label" style={{ margin: '4px 16px 0' }}>Недавние</div>
           <div className="field-group">
-            {items.map((e) => (
-              <button key={e.id} className="list-row" onClick={() => onPick(e.name)}>
-                {e.lift ? <IconBadge icon={liftIcon[e.lift]} color={liftColor[e.lift]} size={30} /> : <IconBadge icon="dumbbell" color={C.orange} size={30} />}
-                <span style={{ flex: 1 }}>{e.name}</span>
-                {e.name === selected && <Icon name="check" size={18} style={{ color: C.orange }} />}
-              </button>
-            ))}
+            {recent.map((name) => row(name, data.exercises.find((e) => e.name === name)?.lift ?? null, `recent-${name}`))}
+          </div>
+        </div>
+      )}
+      {groups.map(([group, items]) => (
+        <div key={group} className="stack" style={{ gap: 8 }}>
+          <div className="group-label" style={{ margin: '4px 16px 0' }}>{group}</div>
+          <div className="field-group">
+            {items.map((e) => row(e.name, e.lift, e.id))}
           </div>
         </div>
       ))}
@@ -234,9 +259,9 @@ export function ExercisePicker({ selected, onPick, onClose }: { selected: string
 export function ExerciseForm({ initialName = '', onClose, onCreated }: { initialName?: string; onClose: () => void; onCreated?: (name: string) => void }) {
   const data = useData()
   const [name, setName] = useState(initialName)
-  const [category, setCategory] = useState('Подсобка')
+  const [category, setCategory] = useState('Другое')
   const [lift, setLift] = useState<'none' | Lift>('none')
-  const categories = [...new Set(data.exercises.map((e) => e.category))]
+  const categories = [...new Set([...EXERCISE_CATEGORIES, ...data.exercises.map((e) => e.category)])]
   const clean = name.trim()
   const exists = data.exercises.some((e) => e.name.toLowerCase() === clean.toLowerCase())
 

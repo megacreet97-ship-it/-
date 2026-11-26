@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import {
   addDays, lookupStandard, roundTo, splitTotal, startOfDay, type Federation, type Lift, type SportRank,
 } from './logic'
+import { EXERCISE_LIBRARY, LIBRARY_VERSION } from './exerciseLibrary'
 
 export interface Exercise {
   id: string
@@ -53,28 +54,13 @@ export interface AppData {
   entries: Entry[]
   attempts: Attempt[]
   profile: Profile
+  /** Version of EXERCISE_LIBRARY already merged into exercises. */
+  libraryVersion?: number
 }
 
 const STORAGE_KEY = 'streetlog.v1'
 
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
-
-const SEED_EXERCISES: [string, string, Lift | null][] = [
-  ['Подтягивания с отягощением', 'Стритлифтинг', 'pullUp'],
-  ['Отжимания на брусьях с отягощением', 'Стритлифтинг', 'dip'],
-  ['Подтягивания', 'Турник', null],
-  ['Подтягивания широким хватом', 'Турник', null],
-  ['Подтягивания обратным хватом', 'Турник', null],
-  ['Негативные подтягивания', 'Турник', null],
-  ['Отжимания на брусьях', 'Брусья', null],
-  ['Отжимания от пола', 'Брусья', null],
-  ['Тяга штанги в наклоне', 'Подсобка', null],
-  ['Жим лёжа', 'Подсобка', null],
-  ['Французский жим', 'Подсобка', null],
-  ['Сгибания на бицепс', 'Подсобка', null],
-  ['Подъём ног в висе', 'Кор', null],
-  ['Планка (сек)', 'Кор', null],
-]
 
 export function applyStandard(profile: Profile): Profile {
   const standard = lookupStandard(profile.federation, profile.weightClassLimit)
@@ -94,7 +80,8 @@ function initialData(): AppData {
   const now = Date.now()
   return {
     version: 1,
-    exercises: SEED_EXERCISES.map(([name, category, lift], i) => ({ id: uid(), name, category, lift, createdAt: now + i })),
+    exercises: EXERCISE_LIBRARY.map(([name, category, lift], i) => ({ id: uid(), name, category, lift, createdAt: now + i })),
+    libraryVersion: LIBRARY_VERSION,
     entries: [],
     attempts: [],
     profile: applyStandard({
@@ -119,18 +106,38 @@ function isAppData(value: unknown): value is AppData {
     Array.isArray(v.attempts) && typeof v.profile === 'object' && v.profile !== null
 }
 
+/** Adds library exercises the user doesn't have yet and moves known ones into the current categories. */
+export function mergeLibrary(data: AppData): AppData {
+  if ((data.libraryVersion ?? 0) >= LIBRARY_VERSION) return data
+  const byName = new Map(EXERCISE_LIBRARY.map(([name, category, lift]) => [name.toLowerCase(), { name, category, lift }]))
+  const existing = new Set(data.exercises.map((e) => e.name.toLowerCase()))
+  const updated = data.exercises.map((e) => {
+    const known = byName.get(e.name.toLowerCase())
+    return known ? { ...e, category: known.category } : e
+  })
+  const now = Date.now()
+  const added = EXERCISE_LIBRARY
+    .filter(([name]) => !existing.has(name.toLowerCase()))
+    .map(([name, category, lift], i) => ({ id: uid(), name, category, lift, createdAt: now + i }))
+  return { ...data, exercises: [...updated, ...added], libraryVersion: LIBRARY_VERSION }
+}
+
 function load(): AppData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed: unknown = JSON.parse(raw)
-      if (isAppData(parsed)) return parsed
+      if (isAppData(parsed)) {
+        const merged = mergeLibrary(parsed)
+        if (merged !== parsed) localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+        return merged
+      }
     }
   } catch {
     // Corrupted storage falls back to a fresh dataset.
   }
   const data = initialData()
-  if (new URLSearchParams(location.search).has('demo')) seedDemo(data)
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo')) seedDemo(data)
   return data
 }
 
@@ -201,7 +208,7 @@ export const actions = {
     })
   },
   replaceAll(data: AppData) {
-    update(() => data)
+    update(() => mergeLibrary(data))
   },
 }
 

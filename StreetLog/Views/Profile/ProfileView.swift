@@ -172,8 +172,7 @@ struct ExercisesView: View {
     @Query(sort: [SortDescriptor(\Exercise.category), SortDescriptor(\Exercise.name)]) private var exercises: [Exercise]
 
     private var categories: [String] {
-        var seen = Set<String>()
-        return exercises.map(\.category).filter { seen.insert($0).inserted }
+        Array(Set(exercises.map(\.category))).sorted(by: ExerciseLibrary.areInOrder)
     }
 
     var body: some View {
