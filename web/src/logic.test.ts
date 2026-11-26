@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   achievedRank, addDays, attemptPlan, classFor, classesFor, currentStreak, dailyProgress, estimatedAddedWeight,
   exerciseTotals, kg, linearTrend, longestStreak, lookupStandard, makeForecast, prepPhase, signedKg, splitTotal,
-  STANDARDS, startOfDay, totalReps, trainingDays, trendReachDate, weeklySum, itemReps, type LogItem,
+  STANDARDS, startOfDay, totalReps, trainingDays, trendReachDate, weeklySum, itemReps, itemTonnage, setsLabel,
+  normalizeSets, type LogItem,
 } from './logic'
 
 const base = startOfDay(new Date(2026, 0, 1).getTime())
@@ -103,5 +104,21 @@ describe('logic', () => {
     expect(kg(47.5)).toBe('47,5 кг')
     expect(kg(46.25)).toBe('46,25 кг')
     expect(signedKg(-2.5)).toBe('−2,5 кг')
+  })
+})
+
+describe('per-set reps', () => {
+  it('counts each set separately', () => {
+    const item = { date: 0, exercise: 'x', reps: 8, sets: 4, addedWeight: 10, setReps: [8, 8, 8, 3] }
+    expect(itemReps(item)).toBe(27)
+    expect(itemTonnage(item)).toBe(270)
+    expect(setsLabel(item)).toBe('8, 8, 8, 3')
+    expect(setsLabel({ reps: 8, sets: 4 })).toBe('4 × 8')
+  })
+
+  it('normalizes equal sets back to sets × reps', () => {
+    expect(normalizeSets([8, 8, 8])).toEqual({ sets: 3, reps: 8 })
+    expect(normalizeSets([8, 8, 8, 3])).toEqual({ sets: 4, reps: 8, setReps: [8, 8, 8, 3] })
+    expect(normalizeSets([0, 5])).toEqual({ sets: 1, reps: 5 })
   })
 })

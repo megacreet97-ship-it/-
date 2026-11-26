@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../icons'
-import { addDays, kg, longDay, num, startOfDay, weekdayShort, dayMonth } from '../logic'
+import { addDays, itemReps, itemTonnage, kg, longDay, num, setsLabel, startOfDay, weekdayShort, dayMonth } from '../logic'
 import { actions, useData, type Entry } from '../store'
-import { recentExercises } from '../derived'
+import { recentExercises, toLogItems } from '../derived'
 import { C, IconBadge, alpha, liftColor, liftIcon, useToast } from '../ui'
 import { QuickLogSheet, atCurrentTime, type LogDraft } from './QuickLog'
 
@@ -24,8 +24,9 @@ export function DiaryScreen() {
   }, [daysWithEntries, selected])
 
   const sets = dayEntries.reduce((a, e) => a + e.sets, 0)
-  const reps = dayEntries.reduce((a, e) => a + e.sets * e.reps, 0)
-  const tonnage = dayEntries.reduce((a, e) => a + e.sets * e.reps * e.addedWeight, 0)
+  const dayItems = toLogItems(dayEntries)
+  const reps = dayItems.reduce((a, i) => a + itemReps(i), 0)
+  const tonnage = dayItems.reduce((a, i) => a + itemTonnage(i), 0)
 
   const repeatDay = (day: number) => {
     const source = data.entries.filter((e) => startOfDay(e.date) === day)
@@ -34,7 +35,12 @@ export function DiaryScreen() {
   }
 
   const addSet = (entry: Entry) => {
-    actions.updateEntry(entry.id, { sets: entry.sets + 1 })
+    if (entry.setReps?.length) {
+      const setReps = [...entry.setReps, entry.setReps[entry.setReps.length - 1]]
+      actions.updateEntry(entry.id, { setReps, sets: setReps.length })
+    } else {
+      actions.updateEntry(entry.id, { sets: entry.sets + 1 })
+    }
     showToast(`${entry.exerciseName}: ${entry.sets + 1} подх.`)
   }
 
@@ -70,7 +76,7 @@ export function DiaryScreen() {
                   <Icon name="plus" size={18} style={{ color: C.orange }} />
                 </div>
                 <div className="name">{e.exerciseName}</div>
-                <div className="caption num">{e.sets} × {e.reps}{e.addedWeight > 0 ? ` · +${num(e.addedWeight)}` : ''}</div>
+                <div className="caption num">{setsLabel(e)}{e.addedWeight > 0 ? ` · +${num(e.addedWeight)}` : ''}</div>
               </button>
             ))}
           </div>
@@ -153,7 +159,7 @@ function EntryCard({ entry, onOpen, onAddSet }: { entry: Entry; onOpen: () => vo
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="headline" style={{ fontSize: 16, lineHeight: 1.25 }}>{entry.exerciseName}</div>
           <div className="row num" style={{ gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 22, fontWeight: 800 }}>{entry.sets} × {entry.reps}</span>
+            <span style={{ fontSize: 22, fontWeight: 800 }}>{setsLabel(entry)}</span>
             {entry.addedWeight > 0 && <span className="pill" style={{ background: alpha(color, 0.18), color }}>+{kg(entry.addedWeight)}</span>}
           </div>
           {entry.note && <div className="caption" style={{ marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.note}</div>}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '../icons'
-import { dayMonth, estimatedAddedWeight, kg, liftFullTitle, type Lift } from '../logic'
+import { dayMonth, estimatedAddedWeight, kg, liftFullTitle, normalizeSets, setsLabel, type Lift } from '../logic'
 import { actions, useData, type Entry } from '../store'
 import { lastEntryFor, recentExercises } from '../derived'
 import { EXERCISE_CATEGORIES, compareCategories } from '../exerciseLibrary'
@@ -28,6 +28,8 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
   const [exerciseName, setExerciseName] = useState(initialName)
   const [sets, setSets] = useState(initialSource?.sets ?? 3)
   const [reps, setReps] = useState(initialSource?.reps ?? 8)
+  /** Reps of each set in "по подходам" mode; null when all sets are equal. */
+  const [setList, setSetList] = useState<number[] | null>(draft.entry?.setReps ?? null)
   const [weight, setWeight] = useState(initialSource?.addedWeight ?? 0)
   const [note, setNote] = useState(draft.entry?.note ?? '')
   const [saveAsMax, setSaveAsMax] = useState(!draft.entry)
@@ -37,14 +39,33 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
   const lift: Lift | null = exercise?.lift ?? draft.entry?.lift ?? null
   const last = lastEntryFor(data.entries, exerciseName, draft.entry?.date ?? Infinity)
   const bodyweight = data.profile.bodyweight
-  const estimate = lift && reps > 1 ? estimatedAddedWeight(weight, bodyweight, reps) : null
+  const effectiveSets = setList ?? Array.from({ length: sets }, () => reps)
+  const totalReps = effectiveSets.reduce((a, r) => a + r, 0)
+  const bestReps = Math.max(...effectiveSets)
+  const estimate = lift && bestReps > 1 ? estimatedAddedWeight(weight, bodyweight, bestReps) : null
+  const canRecord = !setList && reps === 1
   const tint = lift ? liftColor[lift] : C.orange
 
   const apply = (e: Entry) => {
     setSets(e.sets)
     setReps(e.reps)
+    setSetList(e.setReps ?? null)
     setWeight(e.addedWeight)
   }
+
+  const setPerSet = (perSet: boolean) => {
+    if (perSet) {
+      setSetList(Array.from({ length: sets }, () => reps))
+    } else if (setList) {
+      setSets(setList.length)
+      setReps(setList[0])
+      setSetList(null)
+    }
+  }
+
+  const updateSet = (index: number, value: number) => setSetList((list) => list && list.map((r, i) => (i === index ? value : r)))
+  const removeSet = (index: number) => setSetList((list) => (list && list.length > 1 ? list.filter((_, i) => i !== index) : list))
+  const addSet = () => setSetList((list) => list && [...list, list[list.length - 1]])
 
   const choose = (name: string) => {
     setExerciseName(name)
@@ -57,15 +78,17 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
 
   const save = () => {
     const trimmed = note.trim()
+    const shape = setList ? normalizeSets(setList) : { sets, reps, setReps: undefined }
+    const fields = { exerciseName, lift, ...shape, setReps: shape.setReps, addedWeight: weight, note: trimmed }
     let date: number
     if (draft.entry) {
       date = draft.entry.date
-      actions.updateEntry(draft.entry.id, { exerciseName, lift, sets, reps, addedWeight: weight, note: trimmed })
+      actions.updateEntry(draft.entry.id, fields)
     } else {
       date = atCurrentTime(draft.date)
-      actions.addEntry({ date, exerciseName, lift, sets, reps, addedWeight: weight, note: trimmed })
+      actions.addEntry({ date, ...fields })
     }
-    if (saveAsMax && reps === 1 && lift) {
+    if (saveAsMax && canRecord && lift) {
       actions.addAttempt({ date, lift, addedWeight: weight, bodyweight, isCompetition: false, note: '' })
       onSaved?.(`Рекорд записан: +${kg(weight)}`)
     } else {
@@ -114,28 +137,52 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
           <div style={{ flex: 1 }}>
             <div className="caption">В прошлый раз · {dayMonth(last.date)}</div>
             <div className="subhead num" style={{ fontWeight: 700 }}>
-              {last.sets} × {last.reps}{last.addedWeight > 0 ? ` · +${kg(last.addedWeight)}` : ''}
+              {setsLabel(last)}{last.addedWeight > 0 ? ` · +${kg(last.addedWeight)}` : ''}
             </div>
           </div>
           <button onClick={() => apply(last)} style={{ color: tint, fontWeight: 600, fontSize: 15 }}>Подставить</button>
         </div>
       )}
 
-      <div className="stepper-grid">
-        <BigStepper title="Подходы" value={sets} onChange={setSets} min={1} max={50} />
-        <BigStepper title="Повторения" value={reps} onChange={setReps} min={1} max={500} />
-      </div>
+      <Segmented options={[{ value: 'same', label: 'Одинаково' }, { value: 'perSet', label: 'По подходам' }]}
+        value={setList ? 'perSet' : 'same'} onChange={(v) => setPerSet(v === 'perSet')} />
+
+      {setList ? (
+        <div className="card" style={{ gap: 10, padding: 12 }}>
+          {setList.map((r, i) => (
+            <div key={i} className="row" style={{ gap: 8 }}>
+              <span className="caption" style={{ width: 62, fontWeight: 700 }}>{i + 1}-й подход</span>
+              <div style={{ flex: 1 }}>
+                <BigStepper title="" value={r} onChange={(v) => updateSet(i, v)} min={1} max={500} compact />
+              </div>
+              <button aria-label={`Удалить ${i + 1}-й подход`} onClick={() => removeSet(i)} disabled={setList.length === 1}
+                style={{ color: C.pink, opacity: setList.length === 1 ? 0.3 : 1, padding: 6 }}>
+                <Icon name="trash" size={18} />
+              </button>
+            </div>
+          ))}
+          <button className="btn-secondary" style={{ alignSelf: 'center', color: C.orange }} onClick={addSet}>
+            <Icon name="plus" size={16} strokeWidth={2.6} /> Подход
+          </button>
+        </div>
+      ) : (
+        <div className="stepper-grid">
+          <BigStepper title="Подходы" value={sets} onChange={setSets} min={1} max={50} />
+          <BigStepper title="Повторения" value={reps} onChange={setReps} min={1} max={500} />
+        </div>
+      )}
       <BigStepper title="Отягощение" value={weight} onChange={setWeight} step={1.25} max={300} unit="кг" quickSteps={[-2.5, 1.25, 2.5, 5]} />
 
       <div className="card" style={{ flexDirection: 'row' }}>
         <div style={{ flex: 1 }}>
           <div className="caption">Всего повторений</div>
-          <div className="big-number num">{sets * reps}</div>
+          <div className="big-number num">{totalReps}</div>
+          {setList && <div className="caption num">{setsLabel(normalizeSets(setList))}</div>}
         </div>
         {weight > 0 && (
           <div style={{ flex: 1 }}>
             <div className="caption">Тоннаж</div>
-            <div className="big-number num">{kg(weight * sets * reps)}</div>
+            <div className="big-number num">{kg(Math.round(weight * totalReps * 100) / 100)}</div>
           </div>
         )}
       </div>
@@ -145,7 +192,7 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
           <div className="row" style={{ color: tint, fontWeight: 700, fontSize: 15 }}>
             <Icon name="trophy" size={18} /> {liftFullTitle[lift]}
           </div>
-          {reps === 1 ? (
+          {canRecord ? (
             <>
               <div className="row between">
                 <span>Засчитать как рекорд на 1 раз</span>
@@ -156,7 +203,7 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
           ) : estimate !== null ? (
             <>
               <div className="row between">
-                <span>Расчётный максимум на 1 раз</span>
+                <span>Расчётный максимум на 1 раз{setList ? ' (по лучшему подходу)' : ''}</span>
                 <span className="headline num">+{kg(Math.round(estimate * 10) / 10)}</span>
               </div>
               <div className="caption">По формулам Эпли и Бжицки от веса тела {kg(bodyweight)} с отягощением.</div>

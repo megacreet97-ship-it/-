@@ -197,10 +197,12 @@ export interface LogItem {
   reps: number
   sets: number
   addedWeight: number
+  /** Reps of each set when they differ (e.g. 8, 8, 8, 3); `reps` then holds the best set. */
+  setReps?: number[]
 }
 
-export const itemReps = (i: LogItem) => i.reps * i.sets
-export const itemTonnage = (i: LogItem) => i.addedWeight * i.reps * i.sets
+export const itemReps = (i: LogItem) => (i.setReps?.length ? i.setReps.reduce((a, r) => a + r, 0) : i.reps * i.sets)
+export const itemTonnage = (i: LogItem) => i.addedWeight * itemReps(i)
 export const totalReps = (items: LogItem[]) => items.reduce((a, i) => a + itemReps(i), 0)
 export const totalSets = (items: LogItem[]) => items.reduce((a, i) => a + i.sets, 0)
 
@@ -289,6 +291,21 @@ export function dailyMax(points: DatedValue[]): DatedValue[] {
     groups.set(key, Math.max(groups.get(key) ?? -Infinity, p.value))
   }
   return [...groups.entries()].map(([date, value]) => ({ date, value })).sort((a, b) => a.date - b.date)
+}
+
+/** "4 × 8" when all sets are equal, otherwise "8, 8, 8, 3". */
+export function setsLabel(item: Pick<LogItem, 'reps' | 'sets' | 'setReps'>): string {
+  const list = item.setReps
+  if (list?.length && list.some((r) => r !== list[0])) return list.join(', ')
+  return `${item.sets} × ${list?.length ? list[0] : item.reps}`
+}
+
+/** Normalizes per-set reps: equal sets collapse to plain sets × reps. */
+export function normalizeSets(list: number[]): { sets: number; reps: number; setReps?: number[] } {
+  const clean = list.filter((r) => r > 0)
+  if (clean.length === 0) return { sets: 1, reps: 1 }
+  const equal = clean.every((r) => r === clean[0])
+  return equal ? { sets: clean.length, reps: clean[0] } : { sets: clean.length, reps: Math.max(...clean), setReps: clean }
 }
 
 // MARK: Standards

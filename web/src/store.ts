@@ -21,6 +21,8 @@ export interface Entry {
   sets: number
   addedWeight: number
   note: string
+  /** Reps of each set when they differ; `sets` is its length and `reps` the best set. */
+  setReps?: number[]
 }
 
 export interface Attempt {
@@ -224,8 +226,10 @@ export function parseBackup(text: string): AppData | null {
 export function exportCSV(data: AppData): string {
   const esc = (s: string) => `"${s.replace(/"/g, '""')}"`
   const fmt = (ts: number) => new Date(ts).toISOString().slice(0, 16).replace('T', ' ')
-  const lines = ['date;exercise;sets;reps;added_kg;note']
-  for (const e of data.entries) lines.push([fmt(e.date), esc(e.exerciseName), e.sets, e.reps, e.addedWeight, esc(e.note)].join(';'))
+  const lines = ['date;exercise;sets;reps;reps_by_set;added_kg;note']
+  for (const e of data.entries) {
+    lines.push([fmt(e.date), esc(e.exerciseName), e.sets, e.reps, e.setReps?.join(',') ?? '', e.addedWeight, esc(e.note)].join(';'))
+  }
   lines.push('', 'date;lift;added_kg;bodyweight_kg;competition;note')
   for (const a of data.attempts) lines.push([fmt(a.date), a.lift, a.addedWeight, a.bodyweight, a.isCompetition ? 1 : 0, esc(a.note)].join(';'))
   return lines.join('\n')

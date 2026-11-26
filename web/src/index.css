@@ -644,3 +644,27 @@ details p { margin: 6px 0 0; }
 .stepper-grid .stepper { padding: 14px 12px; }
 .stepper-grid .round-btn { width: 42px; height: 42px; }
 .stepper-grid .value { font-size: 34px; }
+
+.value-wrap { display: inline-flex; align-items: baseline; cursor: text; }
+
+.stepper input.value {
+  background: transparent;
+  border: 0;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  color: var(--text);
+  font-weight: 800;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  min-width: 1ch;
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 0;
+}
+
+.stepper input.value:focus { border-bottom-color: var(--orange); }
+
+.stepper.compact { padding: 8px 10px; border-radius: 16px; }
+.stepper.compact .round-btn { width: 38px; height: 38px; }
+.stepper.compact .value { font-size: 26px; }

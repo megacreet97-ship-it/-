@@ -5,7 +5,7 @@ import {
 import type { AppData, Entry, Profile } from './store'
 
 export const toLogItems = (entries: Entry[]): LogItem[] =>
-  entries.map((e) => ({ date: e.date, exercise: e.exerciseName, reps: e.reps, sets: e.sets, addedWeight: e.addedWeight }))
+  entries.map((e) => ({ date: e.date, exercise: e.exerciseName, reps: e.reps, sets: e.sets, addedWeight: e.addedWeight, setReps: e.setReps }))
 
 export const bestLift = (data: AppData, lift: Lift) =>
   Math.max(0, ...data.attempts.filter((a) => a.lift === lift).map((a) => a.addedWeight))

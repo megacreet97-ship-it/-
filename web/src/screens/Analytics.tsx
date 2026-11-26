@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../icons'
 import {
   addDays, currentStreak, dailyProgress, dayMonthYear, exerciseTotals, itemReps, itemTonnage, kg, longestStreak, num,
-  startOfDay, totalReps, totalSets, trainingDays, weeklySum, type ExerciseTotal,
+  setsLabel, startOfDay, totalReps, totalSets, trainingDays, weeklySum, type ExerciseTotal,
 } from '../logic'
 import { useData } from '../store'
 import { toLogItems } from '../derived'
@@ -110,7 +110,7 @@ function ExerciseDetail({ name, onClose }: { name: string; onClose: () => void }
         {lastEntries.map((e) => (
           <div key={e.id} className="row between">
             <span className="footnote">{dayMonthYear(e.date)}</span>
-            <span className="subhead num" style={{ fontWeight: 700 }}>{e.sets} × {e.reps}{e.addedWeight > 0 ? ` · +${kg(e.addedWeight)}` : ''}</span>
+            <span className="subhead num" style={{ fontWeight: 700 }}>{setsLabel(e)}{e.addedWeight > 0 ? ` · +${kg(e.addedWeight)}` : ''}</span>
           </div>
         ))}
       </Card>

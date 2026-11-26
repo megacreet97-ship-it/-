@@ -119,17 +119,42 @@ export function Switch({ on, onChange }: { on: boolean; onChange: (on: boolean) 
   return <button role="switch" aria-checked={on} className={`switch ${on ? 'on' : ''}`} onClick={() => onChange(!on)} />
 }
 
-export function BigStepper({ title, value, onChange, step = 1, min = 0, max = 999, unit, quickSteps, format = num }: {
+export function BigStepper({ title, value, onChange, step = 1, min = 0, max = 999, unit, quickSteps, format = num, compact = false }: {
   title: string; value: number; onChange: (v: number) => void; step?: number; min?: number; max?: number
-  unit?: string; quickSteps?: number[]; format?: (v: number) => string
+  unit?: string; quickSteps?: number[]; format?: (v: number) => string; compact?: boolean
 }) {
+  const [draft, setDraft] = useState<string | null>(null)
   const set = (v: number) => onChange(Math.round(Math.min(max, Math.max(min, v)) * 100) / 100)
+  const decimal = step % 1 !== 0
+  const shown = draft ?? format(value)
   return (
-    <div className="stepper">
-      <div className="caption" style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{title}</div>
+    <div className={`stepper ${compact ? 'compact' : ''}`}>
+      {title && <div className="caption" style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{title}</div>}
       <div className="controls">
         <button className="round-btn" aria-label="Меньше" onClick={() => set(value - step)}><Icon name="minus" /></button>
-        <div className="num"><span className="value">{format(value)}</span>{unit && <span className="unit">{unit}</span>}</div>
+        <label className="num value-wrap">
+          <input
+            className="value"
+            aria-label={title || 'Значение'}
+            inputMode={decimal ? 'decimal' : 'numeric'}
+            enterKeyHint="done"
+            value={shown}
+            style={{ width: `${Math.max(1, shown.length) + 0.3}ch` }}
+            onFocus={(e) => {
+              setDraft(format(value))
+              requestAnimationFrame(() => e.target.select())
+            }}
+            onChange={(e) => {
+              const text = e.target.value.replace(/[^\d.,]/g, '')
+              setDraft(text)
+              const parsed = parseFloat(text.replace(',', '.'))
+              if (!Number.isNaN(parsed)) set(parsed)
+            }}
+            onBlur={() => setDraft(null)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          />
+          {unit && <span className="unit">{unit}</span>}
+        </label>
         <button className="round-btn" aria-label="Больше" style={{ background: 'var(--gradient)' }} onClick={() => set(value + step)}><Icon name="plus" /></button>
       </div>
       {quickSteps && (
