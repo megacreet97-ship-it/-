@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 concurrency:
   group: pages
@@ -36,3 +37,15 @@ jobs:
           publish_branch: gh-pages
           force_orphan: true
           commit_message: 'Deploy web version'
+      - name: Enable Pages from gh-pages (no-op when already enabled)
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pages" >/dev/null 2>&1; then
+            echo "Pages already enabled"
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/pages" -f 'source[branch]=gh-pages' -f 'source[path]=/' \
+              || echo "::warning::Could not enable Pages automatically. Enable it in Settings > Pages (branch gh-pages)."
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/pages" --jq '"Pages: \(.html_url) status=\(.status)"' || true
