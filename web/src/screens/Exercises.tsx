@@ -9,7 +9,7 @@ import { compareCategories } from '../exerciseLibrary'
 import { useData } from '../store'
 import { infoLookup } from '../derived'
 import { C, Card, ProgressBar, Segmented, StatTile, alpha } from '../ui'
-import { ExerciseDetail, Stars } from './ExerciseDetail'
+import { ExerciseDetail, Stars, photoUrl } from './ExerciseDetail'
 
 type Section = 'muscles' | 'library' | 'progress'
 
@@ -124,7 +124,8 @@ function LibrarySection({ muscle, onMuscle, onExercise }: { muscle: Muscle | nul
     .filter(({ exercise, info }) => (!q || exercise.name.toLowerCase().includes(q)) && (!muscle || info?.primary.includes(muscle)))
 
   const row = ({ exercise, info }: (typeof rows)[number]) => (
-    <button key={exercise.id} className="list-row" style={{ alignItems: 'flex-start', paddingTop: 12, paddingBottom: 12 }} onClick={() => onExercise(exercise.name)}>
+    <button key={exercise.id} className="list-row" style={{ alignItems: 'center', gap: 12, paddingTop: 10, paddingBottom: 10 }} onClick={() => onExercise(exercise.name)}>
+      {info?.photo ? <img className="ex-thumb" src={photoUrl(info.photo, 1)} alt="" loading="lazy" /> : <span className="ex-thumb" style={{ background: 'var(--elevated)' }} />}
       <div className="stack" style={{ gap: 3, flex: 1, minWidth: 0 }}>
         <span>{exercise.name}</span>
         <span className="caption">{info ? info.primary.map((m) => muscleTitle[m]).join(', ') : 'нет данных'}{done.get(exercise.name) ? ` · делали ${done.get(exercise.name)} раз` : ''}</span>

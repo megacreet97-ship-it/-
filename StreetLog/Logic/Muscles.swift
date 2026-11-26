@@ -65,6 +65,8 @@ struct ExerciseInfo {
     /// 1–5, expert estimate of how well the exercise loads its primary muscles; 0 when unknown.
     let rating: Int
     let tip: String
+    /// Stem of the bundled start/end technique photos (`<photo>-0.jpg`, `<photo>-1.jpg`).
+    var photo: String? = nil
 
     var levelTitle: String {
         switch level {

@@ -16,6 +16,8 @@ export interface ExerciseInfo {
   /** 1–5, expert estimate of how well the exercise loads its primary muscles. */
   rating: number
   tip: string
+  /** Stem of the start/end technique photos in public/exercise-photos. */
+  photo?: string
 }
 
 export const muscleTitle: Record<Muscle, string> = {

@@ -8,6 +8,21 @@ import { C, IconBadge, Segmented, Sheet, alpha } from '../ui'
 export const goalIcon: Record<Goal, IconName> = { ms: 'trophy', recomp: 'sparkles', fatLoss: 'trendDown', muscle: 'trendUp' }
 export const goalColor: Record<Goal, string> = { ms: C.orange, recomp: C.violet, fatLoss: C.green, muscle: C.blue }
 
+/** Prominent goal button for the top of the goal tab. */
+export function GoalSwitch({ goal }: { goal: Goal }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button className="goal-switch" style={{ color: goalColor[goal], background: alpha(goalColor[goal], 0.15) }} onClick={() => setOpen(true)}>
+        <Icon name={goalIcon[goal]} size={15} strokeWidth={2.4} />
+        Цель: {goalTitle[goal]}
+        <span className="goal-switch-action">Сменить <Icon name="chevronDown" size={14} strokeWidth={2.6} /></span>
+      </button>
+      {open && <GoalSettingsSheet onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
 export function GoalPicker({ value, onPick }: { value: Goal | null; onPick: (goal: Goal) => void }) {
   return (
     <div className="stack" style={{ gap: 10 }}>

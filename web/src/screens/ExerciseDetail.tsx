@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { dailyProgress, dayMonthYear, exerciseTotals, kg, num, setsLabel } from '../logic'
 import { bestForMuscle, kindTitle, levelTitle, muscleTitle, type ExerciseInfo } from '../muscles'
 import { useData } from '../store'
@@ -30,6 +31,7 @@ export function ExerciseDetail({ name, onClose, onOpen }: { name: string; onClos
   return (
     <Sheet title="Упражнение" onClose={onClose} left={<button onClick={onClose}>Закрыть</button>}>
       <h2 className="title2" style={{ margin: '0 4px', fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>{name}</h2>
+      <TechniqueCard name={name} photo={info?.photo} />
       {info && <InfoCard info={info} name={name} onOpen={onOpen} />}
       {entries.length === 0 ? (
         <div className="footnote" style={{ textAlign: 'center', padding: '8px 0' }}>Вы ещё не записывали это упражнение — статистика появится после первой записи.</div>
@@ -55,6 +57,49 @@ export function ExerciseDetail({ name, onClose, onOpen }: { name: string; onClos
         </>
       )}
     </Sheet>
+  )
+}
+
+export const photoUrl = (photo: string, frame: 0 | 1) => `${import.meta.env.BASE_URL}exercise-photos/${photo}-${frame}.jpg`
+
+const videoSearchUrl = (name: string) =>
+  `https://www.youtube.com/results?search_query=${encodeURIComponent(`${name.replace(/\s*\((сек|мин)\)/, '')} техника выполнения`)}`
+
+function TechniqueCard({ name, photo }: { name: string; photo?: string }) {
+  const [frame, setFrame] = useState<0 | 1>(0)
+  const [playing, setPlaying] = useState(true)
+  useEffect(() => {
+    if (!photo || !playing) return
+    const id = setInterval(() => setFrame((f) => (f === 0 ? 1 : 0)), 1300)
+    return () => clearInterval(id)
+  }, [photo, playing])
+
+  return (
+    <Card title="Техника" icon="play">
+      {photo && (
+        <>
+          <button className="technique-photo" onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Остановить' : 'Запустить'}>
+            {([0, 1] as const).map((f) => (
+              <img key={f} src={photoUrl(photo, f)} alt={`${name}: ${f === 0 ? 'исходное' : 'конечное'} положение`}
+                style={{ opacity: frame === f ? 1 : 0 }} loading="lazy" />
+            ))}
+            <span className="technique-badge">{frame === 0 ? '1 · Старт' : '2 · Финиш'}</span>
+          </button>
+          <div className="row" style={{ gap: 8 }}>
+            {([0, 1] as const).map((f) => (
+              <button key={f} className={`technique-thumb ${frame === f ? 'active' : ''}`} onClick={() => { setPlaying(false); setFrame(f) }}>
+                <img src={photoUrl(photo, f)} alt="" loading="lazy" />
+                <span>{f === 0 ? 'Старт' : 'Финиш'}</span>
+              </button>
+            ))}
+          </div>
+          <div className="caption">Нажмите на фото, чтобы остановить смену положений. Фото: free-exercise-db (общественное достояние) — оборудование может немного отличаться.</div>
+        </>
+      )}
+      <a className="btn-secondary" style={{ color: C.orange, justifyContent: 'center' }} href={videoSearchUrl(name)} target="_blank" rel="noopener noreferrer">
+        <Icon name="play" size={16} /> Видео техники на YouTube
+      </a>
+    </Card>
   )
 }
 

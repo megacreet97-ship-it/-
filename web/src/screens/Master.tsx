@@ -14,7 +14,7 @@ import {
   BigStepper, C, Card, IconBadge, NumberField, Pill, ProgressBar, Ring, Segmented, Sheet, Switch, alpha, fromDateInput,
   liftColor, liftIcon, rankColor, toDateInput,
 } from '../ui'
-import { GoalSettingsSheet } from './GoalSettings'
+import { GoalSettingsSheet, GoalSwitch } from './GoalSettings'
 
 export function MasterScreen() {
   const data = useData()
@@ -39,6 +39,7 @@ export function MasterScreen() {
 
   return (
     <div className="screen stack">
+      <div className="goal-switch-row"><GoalSwitch goal="ms" /></div>
       <div className="screen-header">
         <h1 className="large-title">Мастер спорта</h1>
         <button className="btn-secondary" style={{ color: C.orange }} onClick={() => setEditing('new')}>

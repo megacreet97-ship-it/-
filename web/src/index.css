@@ -672,3 +672,111 @@ details p { margin: 6px 0 0; }
 .stepper.compact { padding: 8px 10px; border-radius: 16px; }
 .stepper.compact .round-btn { width: 38px; height: 38px; }
 .stepper.compact .value { font-size: 26px; }
+
+/* Technique photos */
+
+.technique-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--elevated);
+}
+
+.technique-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.35s ease;
+}
+
+.technique-badge {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.technique-thumb {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--elevated);
+  border: 2px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.technique-thumb.active { border-color: var(--orange); }
+.technique-thumb img { width: 48px; height: 36px; object-fit: cover; border-radius: 8px; background: #fff; }
+
+.ex-thumb { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; background: #fff; flex: none; }
+
+/* Day strip month */
+
+a.btn-secondary { text-decoration: none; }
+
+.date-jump {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--orange);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.date-jump input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+}
+
+.month-sep {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--orange);
+  padding: 0 2px;
+}
+
+.goal-switch-row { margin-bottom: -8px; }
+
+.goal-switch {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  max-width: 100%;
+}
+
+.goal-switch-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  font-size: 12px;
+}

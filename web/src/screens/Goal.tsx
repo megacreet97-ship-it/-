@@ -11,7 +11,7 @@ import { infoLookup } from '../derived'
 import { LiftChart } from '../charts'
 import { BigStepper, C, Card, IconBadge, Pill, ProgressBar, Ring, Segmented, Sheet, StatTile, alpha, fromDateInput, toDateInput } from '../ui'
 import { MasterScreen } from './Master'
-import { GoalPicker, GoalSettingsSheet, OptionalField, goalColor, goalIcon, parseOptional } from './GoalSettings'
+import { GoalPicker, GoalSettingsSheet, GoalSwitch, OptionalField, goalColor, parseOptional } from './GoalSettings'
 
 const toneColor: Record<Tone, string> = { good: C.green, warn: C.orange, neutral: C.blue }
 
@@ -73,6 +73,7 @@ function FormScreen({ goal, onOpenExercises }: { goal: Goal; onOpenExercises: ()
 
   return (
     <div className="screen stack">
+      <div className="goal-switch-row"><GoalSwitch goal={goal} /></div>
       <div className="screen-header">
         <h1 className="large-title">Моя форма</h1>
         <button className="btn-secondary" style={{ color: C.orange }} onClick={() => setEditing('new')}>
@@ -82,7 +83,6 @@ function FormScreen({ goal, onOpenExercises }: { goal: Goal; onOpenExercises: ()
 
       <section className="hero">
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-          <button onClick={() => setSettings(true)}><Pill text={`Цель: ${goalTitle[goal]}`} icon={goalIcon[goal]} color={color} /></button>
           {targetWeight > 0 && <Pill text={`вес ${kg(targetWeight)}`} icon="flag" color="#aeaeb2" />}
           {(profile.targetWaist ?? 0) > 0 && <Pill text={`талия ${num(profile.targetWaist ?? 0)} см`} icon="ruler" color="#aeaeb2" />}
         </div>

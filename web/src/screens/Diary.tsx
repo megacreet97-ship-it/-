@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../icons'
 import { addDays, itemReps, itemTonnage, kg, longDay, num, setsLabel, startOfDay, weekdayShort, dayMonth } from '../logic'
 import { actions, useData, type Entry } from '../store'
-import { recentExercises, toLogItems } from '../derived'
-import { C, IconBadge, Pill, Sheet, alpha, liftColor, liftIcon, useToast } from '../ui'
+import { toLogItems } from '../derived'
+import { C, IconBadge, Pill, Sheet, alpha, fromDateInput, liftColor, liftIcon, toDateInput, useToast } from '../ui'
 import { QuickLogSheet, atCurrentTime, type LogDraft } from './QuickLog'
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -19,7 +19,6 @@ export function DiaryScreen() {
   const [copying, setCopying] = useState(false)
 
   const dayEntries = useMemo(() => data.entries.filter((e) => startOfDay(e.date) === selected), [data.entries, selected])
-  const recent = useMemo(() => recentExercises(data.entries), [data.entries])
   const daysWithEntries = useMemo(() => new Set(data.entries.map((e) => startOfDay(e.date))), [data.entries])
   const previousDay = useMemo(() => {
     const before = [...daysWithEntries].filter((d) => d < selected).sort((a, b) => b - a)
@@ -72,24 +71,6 @@ export function DiaryScreen() {
         {tonnage > 0 && <SummaryItem value={tonnage >= 1000 ? `${num(Math.round(tonnage / 100) / 10)}т` : num(tonnage)} label="тоннаж, кг" />}
       </div>
 
-      {recent.length > 0 && (
-        <>
-          <div className="section-title">Быстро добавить</div>
-          <div className="h-scroll">
-            {recent.map((e) => (
-              <button key={e.exerciseName} className="quick-chip" onClick={() => setDraft({ date: selected, exerciseName: e.exerciseName })}>
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <IconBadge icon={e.lift ? liftIcon[e.lift] : 'dumbbell'} color={e.lift ? liftColor[e.lift] : C.orange} size={30} />
-                  <Icon name="plus" size={18} style={{ color: C.orange }} />
-                </div>
-                <div className="name">{e.exerciseName}</div>
-                <div className="caption num">{setsLabel(e)}{e.addedWeight > 0 ? ` · +${num(e.addedWeight)}` : ''}</div>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
       <div className="section-title">
         {selected === today ? 'Сегодня' : dayMonth(selected)}
         {dayEntries.length > 0 && <small>{dayEntries.length} упр.</small>}
@@ -99,7 +80,7 @@ export function DiaryScreen() {
         <div className="card" style={{ alignItems: 'center', textAlign: 'center', padding: '28px 16px' }}>
           <IconBadge icon="calendar" color={C.orange} size={56} />
           <div className="headline">Нет записей за этот день</div>
-          <div className="footnote">Нажмите «Добавить упражнение» внизу или выберите упражнение из быстрых.</div>
+          <div className="footnote">Нажмите «Добавить упражнение» внизу — недавние упражнения будут сверху списка.</div>
           {sameWeekdayDay !== null && (
             <button className="btn-secondary" style={{ color: C.orange }} onClick={() => repeatDay(sameWeekdayDay)}>
               <Icon name="repeat" size={16} /> Как {lastWeekday[new Date(selected).getDay()]} · {dayMonth(sameWeekdayDay)}
@@ -154,24 +135,59 @@ function SummaryItem({ value, label }: { value: string; label: string }) {
   )
 }
 
+const monthTitle = (d: number) => capitalize(new Date(d).toLocaleDateString('ru-RU', { month: 'long' })) + ' ' + new Date(d).getFullYear()
+const monthShort = (d: number) => new Date(d).toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')
+
 function DayStrip({ selected, today, marked, onSelect }: { selected: number; today: number; marked: Set<number>; onSelect: (d: number) => void }) {
   const ref = useRef<HTMLDivElement>(null)
-  const days = useMemo(() => Array.from({ length: 64 }, (_, i) => addDays(today, i - 56)), [today])
+  const [visible, setVisible] = useState(selected)
+  const first = Math.min(addDays(today, -56), addDays(selected, -14))
+  const days = useMemo(() => {
+    const list: number[] = []
+    for (let d = first; d <= addDays(today, 7); d = addDays(d, 1)) list.push(d)
+    return list
+  }, [first, today])
 
   useEffect(() => {
     const el = ref.current?.querySelector<HTMLElement>(`[data-day="${selected}"]`)
     el?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    setVisible(selected)
   }, [selected])
 
+  const onScroll = () => {
+    const strip = ref.current
+    if (!strip) return
+    const center = strip.scrollLeft + strip.clientWidth / 2
+    for (const pill of strip.querySelectorAll<HTMLElement>('[data-day]')) {
+      if (pill.offsetLeft + pill.offsetWidth >= center) {
+        setVisible(Number(pill.dataset.day))
+        return
+      }
+    }
+  }
+
   return (
-    <div className="day-strip" ref={ref}>
-      {days.map((d) => (
-        <button key={d} data-day={d} className={`day-pill ${d === selected ? 'selected' : ''} ${d === today ? 'today' : ''}`} onClick={() => onSelect(d)}>
-          <span className="wd">{weekdayShort(d)}</span>
-          <span className="dn">{new Date(d).getDate()}</span>
-          <span className="dot" style={{ background: marked.has(d) ? (d === selected ? '#fff' : C.orange) : 'transparent' }} />
-        </button>
-      ))}
+    <div className="stack" style={{ gap: 8 }}>
+      <div className="row between" style={{ padding: '0 4px' }}>
+        <span className="headline">{monthTitle(visible)}</span>
+        <label className="date-jump">
+          <Icon name="calendar" size={16} /> Выбрать дату
+          <input type="date" value={toDateInput(selected)} max={toDateInput(addDays(today, 7))} aria-label="Выбрать дату"
+            onChange={(e) => e.target.value && onSelect(startOfDay(fromDateInput(e.target.value, selected)))} />
+        </label>
+      </div>
+      <div className="day-strip" ref={ref} onScroll={onScroll}>
+        {days.map((d) => (
+          <div key={d} className="row" style={{ gap: 8, flex: 'none' }}>
+            {new Date(d).getDate() === 1 && <span className="month-sep">{monthShort(d)}</span>}
+            <button data-day={d} className={`day-pill ${d === selected ? 'selected' : ''} ${d === today ? 'today' : ''}`} onClick={() => onSelect(d)}>
+              <span className="wd">{weekdayShort(d)}</span>
+              <span className="dn">{new Date(d).getDate()}</span>
+              <span className="dot" style={{ background: marked.has(d) ? (d === selected ? '#fff' : C.orange) : 'transparent' }} />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
