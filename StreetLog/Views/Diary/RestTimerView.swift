@@ -1,9 +1,26 @@
 import SwiftUI
 
-/// Countdown above the tab bar. On the diary it sits higher, clear of the add button.
+/// Sits in the tab's bottom safe area, so it stays above the tab bar (and, in the diary, above the add button).
+struct RestTimerInset: ViewModifier {
+    @ObservedObject private var timer = RestTimer.shared
+
+    func body(content: Content) -> some View {
+        content.safeAreaInset(edge: .bottom, spacing: 0) {
+            if timer.endsAt != nil || timer.finishedAt != nil {
+                RestTimerBar()
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+            }
+        }
+    }
+}
+
+extension View {
+    func restTimerInset() -> some View { modifier(RestTimerInset()) }
+}
+
 struct RestTimerBar: View {
     @ObservedObject private var timer = RestTimer.shared
-    var raised: Bool
     @State private var showingSettings = false
 
     var body: some View {
@@ -14,8 +31,6 @@ struct RestTimerBar: View {
                 bar(done: true)
             }
         }
-        .padding(.horizontal)
-        .padding(.bottom, raised ? 72 : 6)
         .sheet(isPresented: $showingSettings) { RestTimerSheet() }
     }
 

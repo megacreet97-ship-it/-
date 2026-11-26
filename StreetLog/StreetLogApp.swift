@@ -43,15 +43,19 @@ struct RootView: View {
                 .tabItem { Label("Дневник", systemImage: "calendar") }
                 .tag(0)
             GoalView(goal: goal, openExercises: { tab = 2 })
+                .restTimerInset()
                 .tabItem { Label(goalTabTitle, systemImage: goal == .ms || goal == nil ? "trophy.fill" : "heart.fill") }
                 .tag(1)
             ExercisesTabView()
+                .restTimerInset()
                 .tabItem { Label("Упражнения", systemImage: "figure.strengthtraining.traditional") }
                 .tag(2)
             AnalyticsView()
+                .restTimerInset()
                 .tabItem { Label("Аналитика", systemImage: "chart.bar.xaxis") }
                 .tag(3)
             ProfileView()
+                .restTimerInset()
                 .tabItem { Label("Профиль", systemImage: "person.crop.circle.fill") }
                 .tag(4)
         }
@@ -64,9 +68,6 @@ struct RootView: View {
                 RestTimer.shared.start(seconds: 95)
             }
             #endif
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            RestTimerBar(raised: false)
         }
         #if DEBUG
         .sheet(item: Binding(get: { demoScreen.map { DemoScreen(id: $0) } }, set: { demoScreen = $0?.id })) { screen in

@@ -54,6 +54,7 @@ struct DiaryView: View {
             }
             .scrollIndicators(.hidden)
             .background(Color(.systemBackground))
+            .restTimerInset()
             .navigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
