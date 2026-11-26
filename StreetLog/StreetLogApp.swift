@@ -13,18 +13,28 @@ struct StreetLogApp: App {
 
 struct RootView: View {
     @Environment(\.modelContext) private var context
+    @State private var tab = UserDefaults.standard.integer(forKey: "initialTab")
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             DiaryView()
                 .tabItem { Label("Дневник", systemImage: "calendar") }
+                .tag(0)
             MasterView()
                 .tabItem { Label("Мастер спорта", systemImage: "trophy") }
+                .tag(1)
             AnalyticsView()
                 .tabItem { Label("Аналитика", systemImage: "chart.bar.xaxis") }
+                .tag(2)
             ProfileView()
                 .tabItem { Label("Профиль", systemImage: "person.crop.circle") }
+                .tag(3)
         }
-        .onAppear { SeedData.seedIfNeeded(context) }
+        .onAppear {
+            SeedData.seedIfNeeded(context)
+            #if DEBUG
+            DemoData.seedIfRequested(context)
+            #endif
+        }
     }
 }
