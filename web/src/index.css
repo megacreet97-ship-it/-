@@ -851,3 +851,35 @@ a.btn-secondary { text-decoration: none; }
 
 .rest-preset .num { font-size: 26px; font-weight: 800; }
 .rest-preset.active { border-color: var(--orange); }
+
+.entry-swipe { position: relative; border-radius: 20px; overflow: hidden; touch-action: pan-y; }
+.entry-swipe-delete {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 18px;
+  background: #ff375f;
+  color: #fff;
+  font-weight: 700;
+}
+.entry-card.dragging { transition: none; }
+.entry-card { transition: transform 0.2s ease; }
+
+.rest-launch {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 999px;
+  background: var(--card);
+  overflow: hidden;
+}
+.rest-launch-go, .rest-launch-set {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.rest-launch-set { padding-left: 4px; padding-right: 10px; color: var(--secondary); }

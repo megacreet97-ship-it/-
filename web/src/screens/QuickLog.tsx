@@ -3,6 +3,7 @@ import { Icon } from '../icons'
 import { dayMonth, estimatedAddedWeight, kg, liftFullTitle, normalizeSets, setsLabel, startOfDay, type Lift } from '../logic'
 import { actions, useData, type Entry } from '../store'
 import { restTimer } from '../restTimer'
+import { haptic } from '../haptic'
 import { lastEntryFor, recentExercises } from '../derived'
 import { EXERCISE_CATEGORIES, compareCategories } from '../exerciseLibrary'
 import { BigStepper, C, IconBadge, Segmented, Sheet, Switch, alpha, liftColor, liftIcon } from '../ui'
@@ -96,6 +97,7 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
     } else {
       onSaved?.(draft.entry ? 'Изменения сохранены' : 'Записано')
     }
+    haptic('success')
     onClose()
   }
 

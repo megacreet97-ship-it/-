@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { Icon } from '../icons'
 import { addDays, itemReps, itemTonnage, kg, longDay, num, setsLabel, startOfDay, weekdayShort, dayMonth } from '../logic'
 import { actions, useData, type Entry } from '../store'
@@ -6,6 +6,7 @@ import { toLogItems } from '../derived'
 import { C, IconBadge, Pill, Sheet, alpha, fromDateInput, liftColor, liftIcon, toDateInput, useToast } from '../ui'
 import { RestTimerButton } from './RestTimer'
 import { restTimer, useRestTimer } from '../restTimer'
+import { haptic } from '../haptic'
 import { QuickLogSheet, atCurrentTime, type LogDraft } from './QuickLog'
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -41,7 +42,19 @@ export function DiaryScreen() {
 
   const repeatDay = (day: number) => {
     const count = actions.copyDay(day, atCurrentTime(selected))
+    haptic('success')
     showToast(`Скопировано упражнений: ${count}`)
+  }
+
+  const selectDay = (day: number) => {
+    if (day !== selected) haptic('select')
+    setSelected(day)
+  }
+
+  const removeEntry = (entry: Entry) => {
+    actions.deleteEntry(entry.id)
+    haptic('delete')
+    showToast(`«${entry.exerciseName}» удалено`)
   }
 
   const addSet = (entry: Entry) => {
@@ -52,6 +65,7 @@ export function DiaryScreen() {
       actions.updateEntry(entry.id, { sets: entry.sets + 1 })
     }
     showToast(`${entry.exerciseName}: ${entry.sets + 1} подх.`)
+    haptic('add')
     restTimer.autoStart()
   }
 
@@ -64,13 +78,13 @@ export function DiaryScreen() {
         </div>
         <div className="row" style={{ gap: 8 }}>
           {selected !== today && (
-            <button className="btn-secondary" onClick={() => setSelected(today)} style={{ color: C.orange }}>Сегодня</button>
+            <button className="btn-secondary" onClick={() => selectDay(today)} style={{ color: C.orange }}>Сегодня</button>
           )}
           <RestTimerButton />
         </div>
       </div>
 
-      <DayStrip selected={selected} today={today} marked={daysWithEntries} onSelect={setSelected} />
+      <DayStrip selected={selected} today={today} marked={daysWithEntries} onSelect={selectDay} />
 
       <div className="card summary" style={{ padding: '18px 0' }}>
         <SummaryItem value={String(dayEntries.length)} label="упражнений" />
@@ -108,7 +122,7 @@ export function DiaryScreen() {
       ) : (
         <div className="stack" style={{ gap: 10 }}>
           {dayEntries.map((e) => (
-            <EntryCard key={e.id} entry={e} onOpen={() => setDraft({ date: selected, entry: e })} onAddSet={() => addSet(e)} />
+            <EntryCard key={e.id} entry={e} onOpen={() => setDraft({ date: selected, entry: e })} onAddSet={() => addSet(e)} onDelete={() => removeEntry(e)} />
           ))}
           {daysWithEntries.size > 1 && (
             <button className="link" style={{ justifyContent: 'center', gap: 6 }} onClick={() => setCopying(true)}>
@@ -200,11 +214,47 @@ function DayStrip({ selected, today, marked, onSelect }: { selected: number; tod
   )
 }
 
-function EntryCard({ entry, onOpen, onAddSet }: { entry: Entry; onOpen: () => void; onAddSet: () => void }) {
+function EntryCard({ entry, onOpen, onAddSet, onDelete }: { entry: Entry; onOpen: () => void; onAddSet: () => void; onDelete: () => void }) {
   const color = entry.lift ? liftColor[entry.lift] : C.orange
+  const [x, setX] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const xRef = useRef(0)
+  const start = useRef<{ x: number; y: number; active: boolean } | null>(null)
+  const moveTo = (value: number) => { xRef.current = value; setX(value) }
+
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('.add-set')) return
+    start.current = { x: event.clientX, y: event.clientY, active: false }
+  }
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const origin = start.current
+    if (!origin) return
+    const dx = event.clientX - origin.x
+    const dy = event.clientY - origin.y
+    if (!origin.active) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+      if (Math.abs(dy) > Math.abs(dx)) { start.current = null; return }
+      origin.active = true
+      setDragging(true)
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
+    moveTo(Math.max(-160, Math.min(0, dx)))
+  }
+  const onPointerUp = () => {
+    if (!start.current?.active) { start.current = null; return }
+    const moved = xRef.current
+    start.current = null
+    setDragging(false)
+    if (moved < -120) onDelete()
+    else moveTo(moved < -48 ? -88 : 0)
+  }
+
   return (
-    <div className="entry-card">
-      <button onClick={onOpen} className="row" style={{ flex: 1, minWidth: 0, gap: 14, textAlign: 'left' }}>
+    <div className="entry-swipe">
+      <button className="entry-swipe-delete" onClick={onDelete} aria-label="Удалить">Удалить</button>
+      <div className={`entry-card ${dragging ? 'dragging' : ''}`} style={{ transform: `translateX(${x}px)` }}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+      <button onClick={() => { if (x < 0) setX(0); else onOpen() }} className="row" style={{ flex: 1, minWidth: 0, gap: 14, textAlign: 'left' }}>
         <IconBadge icon={entry.lift ? liftIcon[entry.lift] : 'dumbbell'} color={color} size={44} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="headline" style={{ fontSize: 16, lineHeight: 1.25 }}>{entry.exerciseName}</div>
@@ -219,6 +269,7 @@ function EntryCard({ entry, onOpen, onAddSet }: { entry: Entry; onOpen: () => vo
         <Icon name="plus" size={18} strokeWidth={2.6} />
         подход
       </button>
+      </div>
     </div>
   )
 }

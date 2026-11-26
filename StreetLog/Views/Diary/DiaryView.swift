@@ -15,6 +15,7 @@ struct DiaryView: View {
     @State private var draft: LogDraft?
     @State private var choosingDayToCopy = false
     @State private var showingRest = false
+    @ObservedObject private var rest = RestTimer.shared
 
     private let calendar = Calendar.current
 
@@ -58,8 +59,32 @@ struct DiaryView: View {
             .navigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button { showingRest = true } label: {
-                        Label("Таймер", systemImage: "timer")
+                    HStack(spacing: 0) {
+                        Button {
+                            Haptics.add()
+                            rest.start()
+                        } label: {
+                            Label(RestTimer.format(TimeInterval(rest.defaultSeconds)), systemImage: "timer")
+                        }
+                        Menu {
+                            ForEach(RestTimer.presets, id: \.self) { seconds in
+                                Button {
+                                    rest.setDefault(seconds)
+                                    Haptics.select()
+                                } label: {
+                                    if rest.defaultSeconds == seconds {
+                                        Label(RestTimer.format(TimeInterval(seconds)), systemImage: "checkmark")
+                                    } else {
+                                        Text(RestTimer.format(TimeInterval(seconds)))
+                                    }
+                                }
+                            }
+                            Divider()
+                            Button("Настроить…") { showingRest = true }
+                        } label: {
+                            Image(systemName: "chevron.down").font(.caption.weight(.bold))
+                                .frame(width: 28, height: 32)
+                        }
                     }
                     .font(.subheadline.weight(.semibold))
                 }
@@ -139,7 +164,7 @@ struct DiaryView: View {
                               onAddSet: { addSet(to: entry) },
                               onEdit: { draft = LogDraft(date: entry.date, entry: entry) },
                               onDuplicate: { duplicate(entry) },
-                              onDelete: { withAnimation { context.delete(entry) } })
+                              onDelete: { Haptics.remove(); withAnimation { context.delete(entry) } })
                 }
                 Text("Нажмите на запись, чтобы изменить. Удерживайте — чтобы дублировать или удалить.")
                     .font(.caption)
@@ -210,6 +235,7 @@ struct DiaryView: View {
                 entry.sets += 1
             }
         }
+        Haptics.add()
         RestTimer.shared.autoStartIfEnabled()
     }
 
@@ -320,7 +346,28 @@ struct EntryCard: View {
 
     private var tint: Color { entry.lift?.color ?? Theme.orange }
 
+    @State private var offset: CGFloat = 0
+
     var body: some View {
+        ZStack(alignment: .trailing) {
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                    .padding(.trailing, 22)
+            }
+            .background(Color(red: 1, green: 0.22, blue: 0.37), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .accessibilityLabel("Удалить")
+
+            card
+                .offset(x: offset)
+                .simultaneousGesture(swipe)
+        }
+        .clipped()
+    }
+
+    private var card: some View {
         HStack(spacing: 14) {
             IconBadge(systemImage: entry.lift?.symbol ?? "dumbbell.fill", tint: tint, size: 44)
             VStack(alignment: .leading, spacing: 6) {
@@ -356,12 +403,29 @@ struct EntryCard: View {
         .padding(14)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .onTapGesture(perform: onEdit)
+        .onTapGesture {
+            if offset != 0 { withAnimation(.snappy) { offset = 0 } } else { onEdit() }
+        }
         .contextMenu {
             Button("Изменить", systemImage: "pencil", action: onEdit)
             Button("Дублировать", systemImage: "plus.square.on.square", action: onDuplicate)
             Button("Удалить", systemImage: "trash", role: .destructive, action: onDelete)
         }
+    }
+
+    private var swipe: some Gesture {
+        DragGesture(minimumDistance: 24, coordinateSpace: .local)
+            .onChanged { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                offset = min(0, max(-160, value.translation.width))
+            }
+            .onEnded { value in
+                withAnimation(.snappy) {
+                    if value.translation.width < -120 { onDelete() }
+                    else if value.translation.width < -56 { offset = -84 }
+                    else { offset = 0 }
+                }
+            }
     }
 }
 
@@ -436,6 +500,7 @@ struct DayStrip: View {
         let isSelected = calendar.isDate(day, inSameDayAs: selected)
         let isToday = calendar.isDateInToday(day)
         return Button {
+            if !calendar.isDate(day, inSameDayAs: selected) { Haptics.select() }
             withAnimation(.snappy) { selected = day }
         } label: {
             VStack(spacing: 6) {
@@ -482,6 +547,7 @@ struct DateJumpSheet: View {
                     ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Готово") {
+                            Haptics.select()
                             selected = Calendar.current.startOfDay(for: date)
                             dismiss()
                         }

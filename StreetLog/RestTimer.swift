@@ -66,6 +66,13 @@ final class RestTimer: ObservableObject {
         finishedAt = nil
     }
 
+    /// Remembers the duration used by the one-tap button. Does not start the countdown.
+    func setDefault(_ seconds: Int) {
+        let value = max(1, seconds)
+        defaultSeconds = value
+        UserDefaults.standard.set(value, forKey: "rest.default")
+    }
+
     func setAutoStart(_ on: Bool) {
         autoStart = on
         UserDefaults.standard.set(on, forKey: "rest.auto")

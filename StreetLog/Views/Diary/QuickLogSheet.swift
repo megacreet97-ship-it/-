@@ -300,6 +300,7 @@ struct QuickLogSheet: View {
         if draft.entry == nil, Calendar.current.isDateInToday(entryDate) {
             RestTimer.shared.autoStartIfEnabled()
         }
+        Haptics.success()
         dismiss()
     }
 }

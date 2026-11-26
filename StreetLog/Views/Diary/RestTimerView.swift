@@ -93,13 +93,14 @@ struct RestTimerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Нажмите время, чтобы начать отдых. Выбранное время запомнится и будет запускаться после каждого подхода.")
+                    Text("Выберите время один раз. Кнопка с часами в дневнике будет запускать его сразу, заходить сюда снова не нужно.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                         ForEach(RestTimer.presets, id: \.self) { seconds in
                             Button {
-                                timer.start(seconds: seconds)
+                                timer.setDefault(seconds)
+                                Haptics.select()
                                 dismiss()
                             } label: {
                                 VStack(alignment: .leading, spacing: 2) {
