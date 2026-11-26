@@ -191,12 +191,21 @@ struct DiaryView: View {
     // MARK: Actions
 
     private func addSet(to entry: WorkoutEntry) {
-        withAnimation(.snappy) { entry.sets += 1 }
+        withAnimation(.snappy) {
+            if var list = entry.setReps, let last = list.last {
+                list.append(last)
+                entry.setReps = list
+                entry.sets = list.count
+            } else {
+                entry.sets += 1
+            }
+        }
     }
 
     private func duplicate(_ entry: WorkoutEntry) {
         context.insert(WorkoutEntry(date: entry.date.addingTimeInterval(1), exerciseName: entry.exerciseName, lift: entry.lift,
-                                    reps: entry.reps, sets: entry.sets, addedWeight: entry.addedWeight, note: entry.note))
+                                    reps: entry.reps, sets: entry.sets, addedWeight: entry.addedWeight, note: entry.note,
+                                    setReps: entry.setReps))
     }
 
     private func repeatWorkout(from day: Date) {
@@ -204,7 +213,7 @@ struct DiaryView: View {
         let base = selectedDate.atCurrentTime()
         for (offset, entry) in source.enumerated() {
             context.insert(WorkoutEntry(date: base.addingTimeInterval(Double(offset)), exerciseName: entry.exerciseName, lift: entry.lift,
-                                        reps: entry.reps, sets: entry.sets, addedWeight: entry.addedWeight))
+                                        reps: entry.reps, sets: entry.sets, addedWeight: entry.addedWeight, setReps: entry.setReps))
         }
     }
 }
@@ -228,7 +237,7 @@ struct EntryCard: View {
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(2)
                 HStack(spacing: 6) {
-                    Text("\(entry.sets) × \(entry.reps)")
+                    Text(entry.setsLabel)
                         .font(.system(.title3, design: .rounded).weight(.bold))
                         .monospacedDigit()
                         .contentTransition(.numericText())
@@ -280,7 +289,7 @@ struct QuickChip: View {
                 .font(.footnote.weight(.semibold))
                 .lineLimit(2, reservesSpace: true)
                 .multilineTextAlignment(.leading)
-            Text("\(entry.sets)×\(entry.reps)" + (entry.addedWeight > 0 ? " · +\(Format.number(entry.addedWeight))" : ""))
+            Text(entry.setsLabel + (entry.addedWeight > 0 ? " · +\(Format.number(entry.addedWeight))" : ""))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

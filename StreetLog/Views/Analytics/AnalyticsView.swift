@@ -187,7 +187,7 @@ struct ExerciseDetailView: View {
                     HStack {
                         Text(entry.date.shortRu)
                         Spacer()
-                        Text("\(entry.sets) × \(entry.reps)" + (entry.addedWeight > 0 ? " · +\(Format.kg(entry.addedWeight))" : ""))
+                        Text(entry.setsLabel + (entry.addedWeight > 0 ? " · +\(Format.kg(entry.addedWeight))" : ""))
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                     }

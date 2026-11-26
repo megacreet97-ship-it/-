@@ -215,10 +215,10 @@ enum CSVExport {
     }
 
     static func diary(_ entries: [WorkoutEntry]) -> String {
-        var lines = ["date;exercise;sets;reps;added_kg;note"]
+        var lines = ["date;exercise;sets;reps;reps_by_set;added_kg;note"]
         for entry in entries {
             lines.append([formatter.string(from: entry.date), escape(entry.exerciseName), "\(entry.sets)",
-                          "\(entry.reps)", "\(entry.addedWeight)", escape(entry.note)].joined(separator: ";"))
+                          "\(entry.reps)", entry.setRepsRaw, "\(entry.addedWeight)", escape(entry.note)].joined(separator: ";"))
         }
         return lines.joined(separator: "\n")
     }

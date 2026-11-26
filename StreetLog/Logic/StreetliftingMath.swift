@@ -268,9 +268,33 @@ struct LogItem {
     let reps: Int
     let sets: Int
     let addedWeight: Double
+    /// Reps of each set when they differ (e.g. 8, 8, 8, 3); `reps` then holds the best set.
+    var setReps: [Int]? = nil
 
-    var totalReps: Int { reps * sets }
+    var totalReps: Int {
+        if let setReps, !setReps.isEmpty { return setReps.reduce(0, +) }
+        return reps * sets
+    }
     var tonnage: Double { addedWeight * Double(totalReps) }
+}
+
+enum SetsFormat {
+    /// "4 × 8" when all sets are equal, otherwise "8, 8, 8, 3".
+    static func label(sets: Int, reps: Int, setReps: [Int]?) -> String {
+        if let list = setReps, let first = list.first {
+            if list.contains(where: { $0 != first }) { return list.map(String.init).joined(separator: ", ") }
+            return "\(list.count) × \(first)"
+        }
+        return "\(sets) × \(reps)"
+    }
+
+    /// Equal sets collapse to plain sets × reps; otherwise `reps` is the best set.
+    static func normalize(_ list: [Int]) -> (sets: Int, reps: Int, setReps: [Int]?) {
+        let clean = list.filter { $0 > 0 }
+        guard let first = clean.first else { return (1, 1, nil) }
+        if clean.allSatisfy({ $0 == first }) { return (clean.count, first, nil) }
+        return (clean.count, clean.max() ?? first, clean)
+    }
 }
 
 struct ExerciseTotal: Identifiable, Equatable {

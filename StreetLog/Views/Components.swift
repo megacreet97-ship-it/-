@@ -221,21 +221,40 @@ struct BigStepper: View {
     var range: ClosedRange<Double> = 0...999
     var unit: String?
     var quickSteps: [Double] = []
+    /// Single-row variant without title and quick buttons, used for per-set reps.
+    var compact = false
+
+    @FocusState private var editing: Bool
+
+    private var isWhole: Bool { step.truncatingRemainder(dividingBy: 1) == 0 }
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text(title).font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
-                Spacer()
+        VStack(spacing: compact ? 0 : 12) {
+            if !compact && !title.isEmpty {
+                HStack {
+                    Text(title).font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                    Spacer()
+                }
             }
-            HStack(spacing: 16) {
+            HStack(spacing: compact ? 10 : 16) {
                 roundButton("minus") { change(by: -step) }
                 Spacer(minLength: 0)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(Format.number(value))
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                    TextField("0", value: $value, format: .number.precision(.fractionLength(0...2)))
+                        .keyboardType(isWhole ? .numberPad : .decimalPad)
+                        .focused($editing)
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: compact ? 28 : 44, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                        .contentTransition(.numericText(value: value))
+                        .frame(minWidth: 36, maxWidth: compact ? 90 : 170)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .overlay(alignment: .bottom) {
+                            Rectangle()
+                                .fill(editing ? Theme.orange : Color.white.opacity(0.18))
+                                .frame(height: 2)
+                                .offset(y: 2)
+                        }
+                        .accessibilityLabel(title.isEmpty ? "Значение" : title)
                     if let unit {
                         Text(unit).font(.headline).foregroundStyle(.secondary)
                     }
@@ -243,7 +262,7 @@ struct BigStepper: View {
                 Spacer(minLength: 0)
                 roundButton("plus") { change(by: step) }
             }
-            if !quickSteps.isEmpty {
+            if !compact && !quickSteps.isEmpty {
                 HStack(spacing: 8) {
                     ForEach(quickSteps, id: \.self) { delta in
                         quickButton(delta > 0 ? "+\(Format.number(delta))" : "−\(Format.number(-delta))") { change(by: delta) }
@@ -252,9 +271,23 @@ struct BigStepper: View {
                 }
             }
         }
-        .padding(16)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(compact ? 8 : 16)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: compact ? 16 : 20, style: .continuous))
         .sensoryFeedback(.selection, trigger: value)
+        .onChange(of: value) { _, newValue in
+            let clamped = min(max(newValue, range.lowerBound), range.upperBound)
+            let rounded = isWhole ? clamped.rounded() : (clamped * 100).rounded() / 100
+            if rounded != newValue { value = rounded }
+        }
+        .toolbar {
+            if editing {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Готово") { editing = false }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
     }
 
     private func change(by delta: Double) {
@@ -266,8 +299,8 @@ struct BigStepper: View {
     private func roundButton(_ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.title3.weight(.bold))
-                .frame(width: 52, height: 52)
+                .font((compact ? Font.body : Font.title3).weight(.bold))
+                .frame(width: compact ? 40 : 52, height: compact ? 40 : 52)
                 .background(Theme.elevated, in: Circle())
         }
         .buttonStyle(.plain)

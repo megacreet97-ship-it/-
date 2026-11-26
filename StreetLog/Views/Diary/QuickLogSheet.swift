@@ -13,6 +13,8 @@ struct QuickLogSheet: View {
     @State private var exerciseName = ""
     @State private var sets = 3
     @State private var reps = 10
+    /// Reps of each set in "по подходам" mode; nil when all sets are equal.
+    @State private var setList: [Int]?
     @State private var weight = 0.0
     @State private var note = ""
     @State private var saveAsMax = false
@@ -23,6 +25,23 @@ struct QuickLogSheet: View {
     private var lift: Lift? { selectedExercise?.lift ?? draft.entry?.lift }
     private var bodyweight: Double { profiles.first?.bodyweight ?? 0 }
     private var tint: Color { lift?.color ?? Theme.orange }
+    private var effectiveSets: [Int] { setList ?? Array(repeating: reps, count: sets) }
+    private var totalReps: Int { effectiveSets.reduce(0, +) }
+    private var bestReps: Int { effectiveSets.max() ?? reps }
+    private var canRecord: Bool { setList == nil && reps == 1 }
+    private var perSetBinding: Binding<Bool> {
+        Binding(get: { setList != nil }, set: { perSet in
+            withAnimation(.snappy) {
+                if perSet {
+                    setList = Array(repeating: reps, count: sets)
+                } else if let list = setList {
+                    sets = list.count
+                    reps = list.first ?? reps
+                    setList = nil
+                }
+            }
+        })
+    }
 
     private var lastEntry: WorkoutEntry? {
         entries.last { $0.exerciseName == exerciseName && $0 !== draft.entry }
@@ -34,8 +53,17 @@ struct QuickLogSheet: View {
                 VStack(spacing: 14) {
                     exerciseSelector
                     if let lastEntry { lastTimeCard(lastEntry) }
-                    BigStepper(title: "Подходы", value: $sets.asDouble, step: 1, range: 1...50)
-                    BigStepper(title: "Повторения в подходе", value: $reps.asDouble, step: 1, range: 1...300)
+                    Picker("Повторения", selection: perSetBinding) {
+                        Text("Одинаково").tag(false)
+                        Text("По подходам").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    if setList != nil {
+                        perSetCard
+                    } else {
+                        BigStepper(title: "Подходы", value: $sets.asDouble, step: 1, range: 1...50)
+                        BigStepper(title: "Повторения в подходе", value: $reps.asDouble, step: 1, range: 1...300)
+                    }
                     BigStepper(title: "Отягощение", value: $weight, step: 1.25, range: 0...300, unit: "кг",
                                quickSteps: [-2.5, 1.25, 2.5, 5])
                     totalsCard
@@ -113,7 +141,7 @@ struct QuickLogSheet: View {
             Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text("В прошлый раз · \(entry.date.dayMonth)").font(.caption).foregroundStyle(.secondary)
-                Text("\(entry.sets) × \(entry.reps)" + (entry.addedWeight > 0 ? " · +\(Format.kg(entry.addedWeight))" : ""))
+                Text(entry.setsLabel + (entry.addedWeight > 0 ? " · +\(Format.kg(entry.addedWeight))" : ""))
                     .font(.subheadline.weight(.semibold))
             }
             Spacer()
@@ -125,11 +153,59 @@ struct QuickLogSheet: View {
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
+    private var perSetCard: some View {
+        VStack(spacing: 10) {
+            ForEach(Array(effectiveSets.indices), id: \.self) { index in
+                HStack(spacing: 8) {
+                    Text("\(index + 1)-й")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 34, alignment: .leading)
+                    BigStepper(title: "", value: setBinding(index), step: 1, range: 1...300, compact: true)
+                    Button(role: .destructive) {
+                        withAnimation(.snappy) { _ = setList?.remove(at: index) }
+                    } label: {
+                        Image(systemName: "trash").foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled((setList?.count ?? 0) <= 1)
+                    .opacity((setList?.count ?? 0) <= 1 ? 0.3 : 1)
+                    .accessibilityLabel("Удалить \(index + 1)-й подход")
+                }
+            }
+            Button {
+                withAnimation(.snappy) { setList?.append(setList?.last ?? reps) }
+            } label: {
+                Label("Подход", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Theme.elevated, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.orange)
+        }
+        .padding(12)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func setBinding(_ index: Int) -> Binding<Double> {
+        Binding(
+            get: { Double(setList?[safe: index] ?? reps) },
+            set: { newValue in
+                guard var list = setList, list.indices.contains(index) else { return }
+                list[index] = Int(newValue.rounded())
+                setList = list
+            }
+        )
+    }
+
     private var totalsCard: some View {
         HStack {
-            StatTile(title: "Всего повторений", value: "\(sets * reps)")
+            StatTile(title: "Всего повторений", value: "\(totalReps)",
+                     caption: setList.map { SetsFormat.label(sets: $0.count, reps: reps, setReps: $0) })
             if weight > 0 {
-                StatTile(title: "Тоннаж", value: Format.kg(weight * Double(sets * reps)))
+                StatTile(title: "Тоннаж", value: Format.kg(weight * Double(totalReps)))
             }
         }
         .padding(16)
@@ -141,15 +217,15 @@ struct QuickLogSheet: View {
             Label(lift.fullTitle, systemImage: "trophy.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(lift.color)
-            if reps == 1 {
+            if canRecord {
                 Toggle("Засчитать как рекорд на 1 раз", isOn: $saveAsMax)
                     .tint(lift.color)
                 Text("Попытка попадёт во вкладку «Мастер спорта».")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else if let estimate = OneRepMax.estimatedAddedWeight(added: weight, bodyweight: bodyweight, reps: reps) {
+            } else if let estimate = OneRepMax.estimatedAddedWeight(added: weight, bodyweight: bodyweight, reps: bestReps) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("Расчётный максимум на 1 раз").font(.subheadline)
+                    Text(setList == nil ? "Расчётный максимум на 1 раз" : "Расчётный максимум (лучший подход)").font(.subheadline)
                     Spacer()
                     Text("+\(Format.kg(estimate))").font(.headline).monospacedDigit()
                 }
@@ -195,26 +271,30 @@ struct QuickLogSheet: View {
     private func apply(_ entry: WorkoutEntry) {
         sets = entry.sets
         reps = entry.reps
+        setList = entry.setReps
         weight = entry.addedWeight
     }
 
     private func save() {
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let shape = setList.map(SetsFormat.normalize) ?? (sets: sets, reps: reps, setReps: nil)
         let entryDate: Date
         if let entry = draft.entry {
             entry.exerciseName = exerciseName
             entry.lift = lift
-            entry.sets = sets
-            entry.reps = reps
+            entry.sets = shape.sets
+            entry.reps = shape.reps
+            entry.setReps = shape.setReps
             entry.addedWeight = weight
             entry.note = trimmedNote
             entryDate = entry.date
         } else {
             entryDate = draft.date.atCurrentTime()
             context.insert(WorkoutEntry(date: entryDate, exerciseName: exerciseName, lift: lift,
-                                        reps: reps, sets: sets, addedWeight: weight, note: trimmedNote))
+                                        reps: shape.reps, sets: shape.sets, addedWeight: weight, note: trimmedNote,
+                                        setReps: shape.setReps))
         }
-        if saveAsMax, reps == 1, let lift {
+        if saveAsMax, canRecord, let lift {
             context.insert(MaxAttempt(date: entryDate, lift: lift, addedWeight: weight, bodyweight: bodyweight))
         }
         dismiss()
@@ -354,4 +434,8 @@ struct ExerciseFormView: View {
             }
         }
     }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }

@@ -132,4 +132,20 @@ final class StreetliftingMathTests: XCTestCase {
         XCTAssertNil(Standards.classFor(bodyweight: 80, federation: .isf))
         XCTAssertEqual(Format.number(67.5), "67,5")
     }
+
+    func testPerSetReps() {
+        let item = LogItem(date: .now, exercise: "x", reps: 8, sets: 4, addedWeight: 10, setReps: [8, 8, 8, 3])
+        XCTAssertEqual(item.totalReps, 27)
+        XCTAssertEqual(item.tonnage, 270)
+        XCTAssertEqual(SetsFormat.label(sets: 4, reps: 8, setReps: [8, 8, 8, 3]), "8, 8, 8, 3")
+        XCTAssertEqual(SetsFormat.label(sets: 4, reps: 8, setReps: nil), "4 × 8")
+        let equal = SetsFormat.normalize([8, 8, 8])
+        XCTAssertEqual(equal.sets, 3)
+        XCTAssertEqual(equal.reps, 8)
+        XCTAssertNil(equal.setReps)
+        let mixed = SetsFormat.normalize([8, 8, 8, 3])
+        XCTAssertEqual(mixed.sets, 4)
+        XCTAssertEqual(mixed.reps, 8)
+        XCTAssertEqual(mixed.setReps, [8, 8, 8, 3])
+    }
 }

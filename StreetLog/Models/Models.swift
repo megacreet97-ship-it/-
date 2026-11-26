@@ -31,8 +31,11 @@ final class WorkoutEntry {
     var sets: Int
     var addedWeight: Double
     var note: String
+    /// Comma-separated reps of each set when they differ; empty when all sets are equal.
+    var setRepsRaw: String = ""
 
-    init(date: Date, exerciseName: String, lift: Lift?, reps: Int, sets: Int, addedWeight: Double = 0, note: String = "") {
+    init(date: Date, exerciseName: String, lift: Lift?, reps: Int, sets: Int, addedWeight: Double = 0, note: String = "",
+         setReps: [Int]? = nil) {
         self.date = date
         self.exerciseName = exerciseName
         self.liftRaw = lift?.rawValue
@@ -40,7 +43,18 @@ final class WorkoutEntry {
         self.sets = sets
         self.addedWeight = addedWeight
         self.note = note
+        self.setReps = setReps
     }
+
+    var setReps: [Int]? {
+        get {
+            let list = setRepsRaw.split(separator: ",").compactMap { Int($0) }
+            return list.isEmpty ? nil : list
+        }
+        set { setRepsRaw = newValue?.map(String.init).joined(separator: ",") ?? "" }
+    }
+
+    var setsLabel: String { SetsFormat.label(sets: sets, reps: reps, setReps: setReps) }
 
     var lift: Lift? {
         get { liftRaw.flatMap(Lift.init(rawValue:)) }
@@ -48,7 +62,7 @@ final class WorkoutEntry {
     }
 
     var logItem: LogItem {
-        LogItem(date: date, exercise: exerciseName, reps: reps, sets: sets, addedWeight: addedWeight)
+        LogItem(date: date, exercise: exerciseName, reps: reps, sets: sets, addedWeight: addedWeight, setReps: setReps)
     }
 }
 
