@@ -22,6 +22,10 @@ struct ProfileForm: View {
     @Bindable var profile: AthleteProfile
     @Query(sort: \WorkoutEntry.date) private var entries: [WorkoutEntry]
     @Query(sort: \MaxAttempt.date) private var attempts: [MaxAttempt]
+    @State private var showingGoal = false
+
+    private var hasStreetliftingData: Bool { !attempts.isEmpty || entries.contains { $0.lift != nil } }
+    private var goal: Goal? { profile.effectiveGoal(hasStreetliftingData: hasStreetliftingData) }
 
     private var autoTotal: Binding<Bool> {
         Binding(
@@ -80,7 +84,8 @@ struct ProfileForm: View {
                     .frame(width: 56, height: 56)
                     VStack(alignment: .leading, spacing: 4) {
                         TextField("Ваше имя", text: $profile.name).font(.headline)
-                        Text("\(profile.federation.title) · \(profile.weightClass) · цель \(profile.goalRank.title)")
+                        Text(goal == .ms ? "\(profile.federation.title) · \(profile.weightClass) · цель \(profile.goalRank.title)"
+                             : "\(goal?.title ?? "Цель не выбрана") · \(Format.kg(profile.bodyweight))")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -88,7 +93,9 @@ struct ProfileForm: View {
                 .padding(.vertical, 4)
                 WeightField(title: "Вес тела", value: $profile.bodyweight, step: 0.1)
             } footer: {
-                if let suggestedClass, suggestedClass.limit != profile.weightClassLimit {
+                if goal != .ms {
+                    Text("Вес обновляется из последнего замера на вкладке «Моя форма».")
+                } else if let suggestedClass, suggestedClass.limit != profile.weightClassLimit {
                     Button("По весу вы проходите в категорию \(suggestedClass.title) — выбрать её") {
                         weightClassLimit.wrappedValue = suggestedClass.limit
                     }
@@ -97,61 +104,81 @@ struct ProfileForm: View {
                 }
             }
 
-            Section {
-                Picker("Федерация", selection: federation) {
-                    ForEach(Federation.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Picker("Весовая категория", selection: weightClassLimit) {
-                    ForEach(Standards.classes(for: profile.federation)) { Text($0.title).tag($0.limit) }
-                    Text("Своя цель").tag(0.0)
-                }
-                Picker("Звание", selection: goalRank) {
-                    ForEach(SportRank.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .disabled(profile.standard == nil)
-            } header: {
-                Text("Цель")
-            } footer: {
-                if profile.standard != nil {
-                    Text("Норматив подставляется из таблицы \(profile.federation.title). Звание в двоеборье даётся по сумме; цели по движениям — её раскладка, их можно поправить ниже.")
-                } else {
-                    Text("Своя цель: введите значения вручную, например для другой весовой категории.")
-                }
-            }
-
-            Section {
-                if profile.standard == nil {
-                    LabeledContent("Весовая категория") {
-                        TextField("например, до 82,5 кг", text: $profile.weightClass)
-                            .multilineTextAlignment(.trailing)
+            Section("Цель") {
+                Button { showingGoal = true } label: {
+                    HStack {
+                        IconBadge(systemImage: goal?.symbol ?? "target", tint: goal?.color ?? Theme.orange, size: 30)
+                        Text(goal?.title ?? "Выбрать цель").foregroundStyle(.primary)
+                        Spacer()
+                        Text("Изменить").foregroundStyle(.secondary)
                     }
                 }
-                WeightField(title: "Подтягивания", value: $profile.targetPullUp)
-                WeightField(title: "Брусья", value: $profile.targetDip)
-                if profile.standard == nil {
-                    Toggle("Сумма = подтягивания + брусья", isOn: autoTotal)
-                }
-                if profile.standard == nil && !autoTotal.wrappedValue {
-                    WeightField(title: "Сумма", value: $profile.targetTotal)
-                } else {
-                    LabeledContent("Сумма", value: Format.kg(profile.goalTotal))
-                }
-            } header: {
-                Text("Целевые веса (отягощение)")
+            }
+            .sheet(isPresented: $showingGoal) {
+                GoalSettingsSheet(profile: profile, hasStreetliftingData: hasStreetliftingData)
             }
 
-            Section("Соревнования") {
-                Toggle("Дата старта", isOn: hasCompetition)
-                if profile.competitionDate != nil {
-                    DatePicker("Дата", selection: competitionDate, displayedComponents: .date)
-                    TextField("Название турнира", text: $profile.competitionName)
+            if let goal, goal != .ms {
+                GoalTargetsSection(profile: profile)
+            }
+
+            if goal == .ms {
+                Section {
+                    Picker("Федерация", selection: federation) {
+                        ForEach(Federation.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    Picker("Весовая категория", selection: weightClassLimit) {
+                        ForEach(Standards.classes(for: profile.federation)) { Text($0.title).tag($0.limit) }
+                        Text("Своя цель").tag(0.0)
+                    }
+                    Picker("Звание", selection: goalRank) {
+                        ForEach(SportRank.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(profile.standard == nil)
+                } header: {
+                    Text("Норматив МС")
+                } footer: {
+                    if profile.standard != nil {
+                        Text("Норматив подставляется из таблицы \(profile.federation.title). Звание в двоеборье даётся по сумме; цели по движениям — её раскладка, их можно поправить ниже.")
+                    } else {
+                        Text("Своя цель: введите значения вручную, например для другой весовой категории.")
+                    }
+                }
+
+                Section {
+                    if profile.standard == nil {
+                        LabeledContent("Весовая категория") {
+                            TextField("например, до 82,5 кг", text: $profile.weightClass)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                    WeightField(title: "Подтягивания", value: $profile.targetPullUp)
+                    WeightField(title: "Брусья", value: $profile.targetDip)
+                    if profile.standard == nil {
+                        Toggle("Сумма = подтягивания + брусья", isOn: autoTotal)
+                    }
+                    if profile.standard == nil && !autoTotal.wrappedValue {
+                        WeightField(title: "Сумма", value: $profile.targetTotal)
+                    } else {
+                        LabeledContent("Сумма", value: Format.kg(profile.goalTotal))
+                    }
+                } header: {
+                    Text("Целевые веса (отягощение)")
+                }
+
+                Section("Соревнования") {
+                    Toggle("Дата старта", isOn: hasCompetition)
+                    if profile.competitionDate != nil {
+                        DatePicker("Дата", selection: competitionDate, displayedComponents: .date)
+                        TextField("Название турнира", text: $profile.competitionName)
+                    }
                 }
             }
 
             Section {
-                NavigationLink("Упражнения") { ExercisesView() }
+                NavigationLink("Мои упражнения") { ManageExercisesView() }
                 ShareLink(item: CSVExport.diary(entries), preview: SharePreview("Дневник тренировок (CSV)")) {
                     Label("Экспорт дневника (CSV)", systemImage: "square.and.arrow.up")
                 }
@@ -167,7 +194,7 @@ struct ProfileForm: View {
     }
 }
 
-struct ExercisesView: View {
+struct ManageExercisesView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: [SortDescriptor(\Exercise.category), SortDescriptor(\Exercise.name)]) private var exercises: [Exercise]
 

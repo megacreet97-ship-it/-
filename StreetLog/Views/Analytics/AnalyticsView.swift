@@ -70,6 +70,9 @@ struct AnalyticsView: View {
             .scrollIndicators(.hidden)
             .background(Color(.systemBackground))
             .navigationTitle("Аналитика")
+            .navigationDestination(for: String.self) { name in
+                ExerciseDetailView(exerciseName: name)
+            }
         }
     }
 
@@ -151,6 +154,12 @@ struct ExerciseDetailView: View {
     let exerciseName: String
 
     @Query(sort: \WorkoutEntry.date, order: .reverse) private var allEntries: [WorkoutEntry]
+    @Query private var exercises: [Exercise]
+
+    private var info: ExerciseInfo? {
+        let exercise = exercises.first { $0.name == exerciseName }
+        return ExerciseInfo.lookup(exerciseName, category: exercise?.category, lift: exercise?.lift)
+    }
 
     private var entries: [WorkoutEntry] { allEntries.filter { $0.exerciseName == exerciseName } }
     private var items: [LogItem] { entries.map(\.logItem) }
@@ -159,42 +168,58 @@ struct ExerciseDetailView: View {
 
     var body: some View {
         List {
-            Section {
-                Chart(DiaryAnalytics.dailyProgress(items, exercise: exerciseName)) { point in
-                    LineMark(x: .value("Дата", point.date), y: .value(axisLabel, point.value))
-                        .foregroundStyle(Theme.orange)
-                        .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .interpolationMethod(.monotone)
-                    PointMark(x: .value("Дата", point.date), y: .value(axisLabel, point.value))
-                        .foregroundStyle(Theme.pink)
-                }
-                .frame(height: 200)
-                .padding(.vertical, 8)
-            } header: {
-                Text(isWeighted ? "Максимальное отягощение за тренировку" : "Повторений за тренировку")
+            if let info {
+                ExerciseInfoSection(name: exerciseName, info: info)
             }
-
-            Section {
-                HStack {
-                    StatTile(title: "Тренировок", value: "\(DiaryAnalytics.trainingDays(items).count)")
-                    StatTile(title: "Повторений", value: "\(DiaryAnalytics.totalReps(items))")
-                    StatTile(title: "Лучший подход", value: "\(entries.map(\.reps).max() ?? 0)")
+            if entries.isEmpty {
+                Section {
+                    Text("Вы ещё не записывали это упражнение — статистика появится после первой записи.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-            }
-
-            Section("История") {
-                ForEach(entries) { entry in
-                    HStack {
-                        Text(entry.date.shortRu)
-                        Spacer()
-                        Text(entry.setsLabel + (entry.addedWeight > 0 ? " · +\(Format.kg(entry.addedWeight))" : ""))
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                }
+            } else {
+                statistics
             }
         }
         .navigationTitle(exerciseName)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private var statistics: some View {
+        Section {
+            Chart(DiaryAnalytics.dailyProgress(items, exercise: exerciseName)) { point in
+                LineMark(x: .value("Дата", point.date), y: .value(axisLabel, point.value))
+                    .foregroundStyle(Theme.orange)
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .interpolationMethod(.monotone)
+                PointMark(x: .value("Дата", point.date), y: .value(axisLabel, point.value))
+                    .foregroundStyle(Theme.pink)
+            }
+            .frame(height: 200)
+            .padding(.vertical, 8)
+        } header: {
+            Text(isWeighted ? "Максимальное отягощение за тренировку" : "Повторений за тренировку")
+        }
+
+        Section {
+            HStack {
+                StatTile(title: "Тренировок", value: "\(DiaryAnalytics.trainingDays(items).count)")
+                StatTile(title: "Повторений", value: "\(DiaryAnalytics.totalReps(items))")
+                StatTile(title: "Лучший подход", value: "\(entries.map(\.reps).max() ?? 0)")
+            }
+        }
+
+        Section("История") {
+            ForEach(entries) { entry in
+                HStack {
+                    Text(entry.date.shortRu)
+                    Spacer()
+                    Text(entry.setsLabel + (entry.addedWeight > 0 ? " · +\(Format.kg(entry.addedWeight))" : ""))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 }

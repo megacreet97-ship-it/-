@@ -231,7 +231,7 @@ sw += ["    ]", "",
        "        }",
        "    }",
        "}"]
-open(ROOT / 'StreetLog/Models/ExerciseLibrary.swift', 'w').write("\n".join(sw) + "\n")
+open(ROOT / 'StreetLog/Logic/ExerciseLibrary.swift', 'w').write("\n".join(sw) + "\n")
 
 MUSCLES = ["chest", "lats", "traps", "lowerBack", "frontDelts", "sideDelts", "rearDelts", "biceps", "triceps",
            "forearms", "abs", "obliques", "quads", "hamstrings", "glutes", "adductors", "calves", "cardio"]
@@ -279,5 +279,5 @@ for n in names:
     si.append(f"        d[{sw_str(n)}] = ExerciseInfo(primary: [{', '.join('.' + m for m in p)}], secondary: [{', '.join('.' + m for m in s)}], "
               f"kind: .{k}, equipment: {sw_str(e)}, level: {lv}, rating: {r}, tip: {sw_str(tip)})")
 si += ["        return d", "    }()", "}"]
-open(ROOT / 'StreetLog/Models/ExerciseInfoData.swift', 'w').write("\n".join(si) + "\n")
+open(ROOT / 'StreetLog/Logic/ExerciseInfoData.swift', 'w').write("\n".join(si) + "\n")
 print(f'{len(info)} exercise descriptions')

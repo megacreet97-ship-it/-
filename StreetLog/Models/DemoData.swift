@@ -51,16 +51,39 @@ enum DemoData {
         }
         try? context.save()
     }
+
+    /// `-demoGoal recomp` switches the profile to a body-composition goal and adds sample measurements.
+    static func applyGoalIfRequested(_ context: ModelContext) {
+        guard let raw = UserDefaults.standard.string(forKey: "demoGoal"), let goal = Goal(rawValue: raw),
+              let profile = try? context.fetch(FetchDescriptor<AthleteProfile>()).first else { return }
+        profile.goal = goal
+        profile.targetWeight = 68
+        profile.targetWaist = 78
+        if ((try? context.fetchCount(FetchDescriptor<BodyMeasurement>())) ?? 0) == 0 {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: .now)
+            for offset in stride(from: -42, through: 0, by: 3) {
+                let progress = Double(offset + 42) / 42
+                let date = calendar.date(byAdding: .day, value: offset, to: today)?.addingTimeInterval(8 * 3600) ?? today
+                let weight = ((71.5 - 0.8 * progress + sin(Double(offset)) * 0.3) * 10).rounded() / 10
+                let waist = offset % 7 == 0 ? ((84 - 3 * progress) * 2).rounded() / 2 : 0
+                context.insert(BodyMeasurement(date: date, weight: weight, waist: waist))
+                if offset == 0 { profile.bodyweight = weight }
+            }
+        }
+        try? context.save()
+    }
 }
 
 struct DemoScreen: Identifiable {
     let id: String
 }
 
-/// Opens a specific screen on launch (`-demoScreen quicklog|standards`) for simulator screenshots.
+/// Opens a specific screen on launch (`-demoScreen quicklog|standards|copyday`) for simulator screenshots.
 struct DemoScreenView: View {
     let name: String
     @Query(sort: \MaxAttempt.date) private var attempts: [MaxAttempt]
+    @Query(sort: \WorkoutEntry.date) private var entries: [WorkoutEntry]
 
     private func best(_ lift: Lift) -> Double {
         attempts.filter { $0.lift == lift }.map(\.addedWeight).max() ?? 0
@@ -72,6 +95,8 @@ struct DemoScreenView: View {
             NavigationStack {
                 StandardsView(initialFederation: .isf, total: best(.pullUp) + best(.dip), pullUp: best(.pullUp), dip: best(.dip))
             }
+        case "copyday":
+            CopyDaySheet(entries: entries, target: Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now) { _ in }
         default:
             QuickLogSheet(draft: LogDraft(date: .now, exerciseName: "Подтягивания с отягощением"))
         }

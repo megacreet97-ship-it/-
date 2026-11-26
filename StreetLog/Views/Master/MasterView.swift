@@ -9,6 +9,7 @@ struct MasterView: View {
 
     @State private var chartLift: Lift = .pullUp
     @State private var showingNewAttempt = false
+    @State private var showingGoalSettings = false
 
     private let calendar = Calendar.current
 
@@ -65,6 +66,11 @@ struct MasterView: View {
                     attemptsPlanCard
                     historyCard
                     StreetliftingInfoCard()
+                    Button { showingGoalSettings = true } label: {
+                        Label("Другая цель: похудение, рекомпозиция, набор мышц", systemImage: "target")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .padding(.vertical, 4)
                 }
                 .padding()
             }
@@ -81,6 +87,9 @@ struct MasterView: View {
             }
             .sheet(isPresented: $showingNewAttempt) {
                 AttemptEditorView()
+            }
+            .sheet(isPresented: $showingGoalSettings) {
+                if let profile { GoalSettingsSheet(profile: profile, hasStreetliftingData: true) }
             }
         }
     }

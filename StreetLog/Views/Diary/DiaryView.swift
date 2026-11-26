@@ -13,6 +13,7 @@ struct DiaryView: View {
     @Query(sort: \WorkoutEntry.date) private var entries: [WorkoutEntry]
     @State private var selectedDate = Calendar.current.startOfDay(for: .now)
     @State private var draft: LogDraft?
+    @State private var choosingDayToCopy = false
 
     private let calendar = Calendar.current
 
@@ -29,6 +30,14 @@ struct DiaryView: View {
     private var previousWorkoutDay: Date? {
         let start = calendar.startOfDay(for: selectedDate)
         return entries.last { $0.date < start }.map { calendar.startOfDay(for: $0.date) }
+    }
+
+    /// Latest earlier workout on the same weekday, e.g. last Wednesday when a Wednesday is selected.
+    private var sameWeekdayWorkoutDay: Date? {
+        let start = calendar.startOfDay(for: selectedDate)
+        let weekday = calendar.component(.weekday, from: selectedDate)
+        return entries.last { $0.date < start && calendar.component(.weekday, from: $0.date) == weekday }
+            .map { calendar.startOfDay(for: $0.date) }
     }
 
     /// Most recently used exercises (newest first) with their last entry, for one-tap logging.
@@ -79,6 +88,11 @@ struct DiaryView: View {
             }
             .sheet(item: $draft) { draft in
                 QuickLogSheet(draft: draft)
+            }
+            .sheet(isPresented: $choosingDayToCopy) {
+                CopyDaySheet(entries: entries, target: selectedDate) { day in
+                    repeatWorkout(from: day)
+                }
             }
         }
     }
@@ -158,6 +172,14 @@ struct DiaryView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
+                if markedDays.count > 1 {
+                    Button { choosingDayToCopy = true } label: {
+                        Label("Скопировать из другого дня", systemImage: "doc.on.doc")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.top, 4)
+                }
             }
         }
     }
@@ -170,22 +192,37 @@ struct DiaryView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            if let previousWorkoutDay {
-                Button {
-                    repeatWorkout(from: previousWorkoutDay)
-                } label: {
-                    Label("Повторить тренировку от \(previousWorkoutDay.dayMonth)", systemImage: "arrow.clockwise")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Theme.elevated, in: Capsule())
-                }
-                .buttonStyle(.plain)
+            if let sameWeekdayWorkoutDay {
+                repeatButton("Как \(Self.lastWeekday[calendar.component(.weekday, from: selectedDate) - 1]) · \(sameWeekdayWorkoutDay.dayMonth)",
+                             day: sameWeekdayWorkoutDay)
+            }
+            if let previousWorkoutDay, previousWorkoutDay != sameWeekdayWorkoutDay {
+                repeatButton("Повторить от \(previousWorkoutDay.dayMonth)", day: previousWorkoutDay)
+            }
+            if !markedDays.isEmpty {
+                Button("Выбрать другой день") { choosingDayToCopy = true }
+                    .font(.subheadline.weight(.semibold))
             }
         }
         .frame(maxWidth: .infinity)
         .padding(24)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+    }
+
+    private static let lastWeekday = ["в прошлое воскресенье", "в прошлый понедельник", "в прошлый вторник", "в прошлую среду",
+                                      "в прошлый четверг", "в прошлую пятницу", "в прошлую субботу"]
+
+    private func repeatButton(_ title: String, day: Date) -> some View {
+        Button {
+            repeatWorkout(from: day)
+        } label: {
+            Label(title, systemImage: "arrow.clockwise")
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Theme.elevated, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Actions
@@ -209,12 +246,87 @@ struct DiaryView: View {
     }
 
     private func repeatWorkout(from day: Date) {
-        let source = entries.filter { calendar.isDate($0.date, inSameDayAs: day) }
+        let source = entries.filter { calendar.isDate($0.date, inSameDayAs: day) }.sorted { $0.date < $1.date }
         let base = selectedDate.atCurrentTime()
         for (offset, entry) in source.enumerated() {
             context.insert(WorkoutEntry(date: base.addingTimeInterval(Double(offset)), exerciseName: entry.exerciseName, lift: entry.lift,
                                         reps: entry.reps, sets: entry.sets, addedWeight: entry.addedWeight, setReps: entry.setReps))
         }
+    }
+}
+
+struct CopyDaySheet: View {
+    let entries: [WorkoutEntry]
+    let target: Date
+    var onPick: (Date) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var sameWeekdayOnly = false
+
+    private let calendar = Calendar.current
+    private static let weekdayPlural = ["воскресенья", "понедельники", "вторники", "среды", "четверги", "пятницы", "субботы"]
+
+    private var weekday: Int { calendar.component(.weekday, from: target) }
+
+    private var days: [(day: Date, entries: [WorkoutEntry])] {
+        let targetDay = calendar.startOfDay(for: target)
+        let grouped = Dictionary(grouping: entries) { calendar.startOfDay(for: $0.date) }
+        return grouped
+            .filter { $0.key != targetDay }
+            .map { (day: $0.key, entries: $0.value.sorted { $0.date < $1.date }) }
+            .sorted { $0.day > $1.day }
+            .prefix(90)
+            .map { $0 }
+    }
+
+    var body: some View {
+        let all = days
+        let same = all.filter { calendar.component(.weekday, from: $0.day) == weekday }
+        NavigationStack {
+            List {
+                Section {
+                    if !same.isEmpty && same.count < all.count {
+                        Toggle("Только \(Self.weekdayPlural[weekday - 1])", isOn: $sameWeekdayOnly)
+                    }
+                } footer: {
+                    Text("Упражнения выбранного дня добавятся в \(calendar.isDateInToday(target) ? "сегодня" : target.dayMonth) с теми же подходами и весами — потом их можно поменять.")
+                }
+                ForEach(sameWeekdayOnly ? same : all, id: \.day) { item in
+                    Button {
+                        onPick(item.day)
+                        dismiss()
+                    } label: {
+                        dayRow(item.day, entries: item.entries)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .navigationTitle("Скопировать тренировку")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } }
+            }
+        }
+    }
+
+    private func dayRow(_ day: Date, entries: [WorkoutEntry]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(day.formatted(.dateTime.weekday(.wide).day().month(.wide)).capitalized).font(.headline)
+                Spacer()
+                if calendar.component(.weekday, from: day) == weekday {
+                    Pill(text: "тот же день недели")
+                }
+            }
+            Text("\(entries.count) упр. · \(entries.reduce(0) { $0 + $1.sets }) подх.").font(.caption).foregroundStyle(.secondary)
+            Text(entries.map { $0.exerciseName + " " + $0.setsLabel + ($0.addedWeight > 0 ? " +\(Format.number($0.addedWeight))" : "") }
+                .joined(separator: " · "))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 }
 

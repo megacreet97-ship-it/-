@@ -105,6 +105,11 @@ final class AthleteProfile {
     /// Upper limit of the chosen class from `Standards`; 0 means custom targets entered by hand.
     var weightClassLimit: Double = 0
     var goalRankRaw: String = SportRank.ms.rawValue
+    /// Raw value of `Goal`; empty until the user picks one (see `effectiveGoal`).
+    var goalRaw: String = ""
+    var targetWeight: Double = 0
+    var targetWaist: Double = 0
+    var weeklyWorkouts: Int = 3
 
     init(name: String = "",
          bodyweight: Double = 67,
@@ -143,6 +148,16 @@ final class AthleteProfile {
         set { goalRankRaw = newValue.rawValue }
     }
 
+    var goal: Goal? {
+        get { Goal(rawValue: goalRaw) }
+        set { goalRaw = newValue?.rawValue ?? "" }
+    }
+
+    /// Users from before goals existed and anyone with streetlifting data keep the МС screen.
+    func effectiveGoal(hasStreetliftingData: Bool) -> Goal? {
+        goal ?? (hasStreetliftingData ? .ms : nil)
+    }
+
     var standard: WeightClassStandard? {
         Standards.lookup(federation: federation, limit: weightClassLimit)
     }
@@ -159,6 +174,24 @@ final class AthleteProfile {
         targetTotal = norms.total
         targetPullUp = split.pullUp
         targetDip = split.dip
+    }
+}
+
+/// Body weight and optional waist / body-fat measurements for the body-composition goals.
+@Model
+final class BodyMeasurement {
+    var date: Date
+    var weight: Double
+    /// Centimetres; 0 when not measured.
+    var waist: Double = 0
+    /// Percent; 0 when not measured.
+    var bodyFat: Double = 0
+
+    init(date: Date, weight: Double, waist: Double = 0, bodyFat: Double = 0) {
+        self.date = date
+        self.weight = weight
+        self.waist = waist
+        self.bodyFat = bodyFat
     }
 }
 

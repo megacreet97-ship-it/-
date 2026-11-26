@@ -80,10 +80,14 @@ jobs:
           }
           shoot 1-diary -initialTab 0
           shoot 2-master -initialTab 1
-          shoot 3-analytics -initialTab 2
-          shoot 4-profile -initialTab 3
-          shoot 5-quicklog -initialTab 0 -demoScreen quicklog
-          shoot 6-standards -initialTab 1 -demoScreen standards
+          shoot 3-exercises -initialTab 2
+          shoot 4-analytics -initialTab 3
+          shoot 5-profile -initialTab 4
+          shoot 6-quicklog -initialTab 0 -demoScreen quicklog
+          shoot 7-standards -initialTab 1 -demoScreen standards
+          shoot 8-copy-day -initialTab 0 -demoScreen copyday
+          shoot 9-recomp -initialTab 1 -demoGoal recomp
+          shoot 10-profile-recomp -initialTab 4
       - uses: actions/upload-artifact@v4
         if: always()
         with:
