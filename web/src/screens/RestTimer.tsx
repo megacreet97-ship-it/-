@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '../icons'
 import { REST_PRESETS, formatRest, restTimer, useRestTimer } from '../restTimer'
-import { haptic } from '../haptic'
+import { haptic, HapticPad } from '../haptic'
 import { C, Sheet, Switch } from '../ui'
 
 function useNow(active: boolean) {
@@ -59,9 +59,9 @@ export function RestTimerButton() {
   return (
     <>
       <div className="rest-launch">
-        <button className="rest-launch-go" style={{ color: timer.endsAt ? C.green : C.orange }}
+        <button className="rest-launch-go haptic-host" style={{ color: timer.endsAt ? C.green : C.orange }}
           onClick={() => { haptic('add'); restTimer.start() }} aria-label={`Запустить отдых ${formatRest(timer.defaultSeconds)}`}>
-          <Icon name="clock" size={16} strokeWidth={2.4} /> {formatRest(timer.defaultSeconds)}
+          <HapticPad /><Icon name="clock" size={16} strokeWidth={2.4} /> {formatRest(timer.defaultSeconds)}
         </button>
         <button className="rest-launch-set" onClick={() => setOpen(true)} aria-label="Настроить время отдыха">
           <Icon name="chevronDown" size={16} strokeWidth={2.6} />
@@ -79,8 +79,9 @@ function RestTimerSheet({ onClose }: { onClose: () => void }) {
       <div className="footnote">Выберите время один раз. Кнопка с часами в дневнике будет запускать его сразу, заходить сюда снова не нужно.</div>
       <div className="rest-presets">
         {REST_PRESETS.map((s) => (
-          <button key={s} className={`rest-preset ${timer.defaultSeconds === s ? 'active' : ''}`}
+          <button key={s} className={`rest-preset haptic-host ${timer.defaultSeconds === s ? 'active' : ''}`}
             onClick={() => { restTimer.setDefault(s); haptic('select'); onClose() }}>
+            <HapticPad />
             <span className="num">{formatRest(s)}</span>
             <span className="caption">{s <= 90 ? 'объём, пампинг' : s <= 180 ? 'рабочие подходы' : 'тяжёлые, одиночки'}</span>
           </button>

@@ -3,7 +3,7 @@ import { Icon } from '../icons'
 import { dayMonth, estimatedAddedWeight, kg, liftFullTitle, normalizeSets, setsLabel, startOfDay, type Lift } from '../logic'
 import { actions, useData, type Entry } from '../store'
 import { restTimer } from '../restTimer'
-import { haptic } from '../haptic'
+import { haptic, HapticPad } from '../haptic'
 import { lastEntryFor, recentExercises } from '../derived'
 import { EXERCISE_CATEGORIES, compareCategories } from '../exerciseLibrary'
 import { BigStepper, C, IconBadge, Segmented, Sheet, Switch, alpha, liftColor, liftIcon } from '../ui'
@@ -119,10 +119,10 @@ export function QuickLogSheet({ draft, onClose, onSaved }: { draft: LogDraft; on
     <Sheet
       title={draft.entry ? 'Запись' : 'Новый подход'}
       onClose={onClose}
-      right={draft.entry ? <button onClick={remove} style={{ color: C.pink }} aria-label="Удалить"><Icon name="trash" size={20} /></button> : undefined}
+      right={draft.entry ? <button className="haptic-host" onClick={remove} style={{ color: C.pink }} aria-label="Удалить"><HapticPad /><Icon name="trash" size={20} /></button> : undefined}
       footer={
-        <button className="btn-primary" disabled={!exerciseName} onClick={save}>
-          <Icon name="check" strokeWidth={2.6} /> {draft.entry ? 'Сохранить' : 'Записать'}
+        <button className="btn-primary haptic-host" disabled={!exerciseName} onClick={save}>
+          <HapticPad /><Icon name="check" strokeWidth={2.6} /> {draft.entry ? 'Сохранить' : 'Записать'}
         </button>
       }
     >

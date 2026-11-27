@@ -6,7 +6,7 @@ import { toLogItems } from '../derived'
 import { C, IconBadge, Pill, Sheet, alpha, fromDateInput, liftColor, liftIcon, toDateInput, useToast } from '../ui'
 import { RestTimerButton } from './RestTimer'
 import { restTimer, useRestTimer } from '../restTimer'
-import { haptic } from '../haptic'
+import { haptic, HapticPad } from '../haptic'
 import { QuickLogSheet, atCurrentTime, type LogDraft } from './QuickLog'
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -78,7 +78,7 @@ export function DiaryScreen() {
         </div>
         <div className="row" style={{ gap: 8 }}>
           {selected !== today && (
-            <button className="btn-secondary" onClick={() => selectDay(today)} style={{ color: C.orange }}>Сегодня</button>
+            <button className="btn-secondary haptic-host" onClick={() => selectDay(today)} style={{ color: C.orange }}><HapticPad />Сегодня</button>
           )}
           <RestTimerButton />
         </div>
@@ -104,18 +104,18 @@ export function DiaryScreen() {
           <div className="headline">Нет записей за этот день</div>
           <div className="footnote">Нажмите «Добавить упражнение» внизу — недавние упражнения будут сверху списка.</div>
           {sameWeekdayDay !== null && (
-            <button className="btn-secondary" style={{ color: C.orange }} onClick={() => repeatDay(sameWeekdayDay)}>
-              <Icon name="repeat" size={16} /> Как {lastWeekday[new Date(selected).getDay()]} · {dayMonth(sameWeekdayDay)}
+            <button className="btn-secondary haptic-host" style={{ color: C.orange }} onClick={() => repeatDay(sameWeekdayDay)}>
+              <HapticPad /><Icon name="repeat" size={16} /> Как {lastWeekday[new Date(selected).getDay()]} · {dayMonth(sameWeekdayDay)}
             </button>
           )}
           {previousDay !== null && previousDay !== sameWeekdayDay && (
-            <button className="btn-secondary" style={{ color: C.orange }} onClick={() => repeatDay(previousDay)}>
-              <Icon name="repeat" size={16} /> Повторить от {dayMonth(previousDay)}
+            <button className="btn-secondary haptic-host" style={{ color: C.orange }} onClick={() => repeatDay(previousDay)}>
+              <HapticPad /><Icon name="repeat" size={16} /> Повторить от {dayMonth(previousDay)}
             </button>
           )}
           {daysWithEntries.size > 0 && (
-            <button className="link" style={{ justifyContent: 'center', gap: 6 }} onClick={() => setCopying(true)}>
-              <Icon name="copy" size={16} /> Выбрать другой день
+            <button className="link haptic-host" style={{ justifyContent: 'center', gap: 6 }} onClick={() => setCopying(true)}>
+              <HapticPad /><Icon name="copy" size={16} /> Выбрать другой день
             </button>
           )}
         </div>
@@ -125,16 +125,16 @@ export function DiaryScreen() {
             <EntryCard key={e.id} entry={e} onOpen={() => setDraft({ date: selected, entry: e })} onAddSet={() => addSet(e)} onDelete={() => removeEntry(e)} />
           ))}
           {daysWithEntries.size > 1 && (
-            <button className="link" style={{ justifyContent: 'center', gap: 6 }} onClick={() => setCopying(true)}>
-              <Icon name="copy" size={16} /> Скопировать из другого дня
+            <button className="link haptic-host" style={{ justifyContent: 'center', gap: 6 }} onClick={() => setCopying(true)}>
+              <HapticPad /><Icon name="copy" size={16} /> Скопировать из другого дня
             </button>
           )}
         </div>
       )}
 
       <div className="floating-action">
-        <button className="btn-primary" onClick={() => setDraft({ date: selected })}>
-          <Icon name="plus" strokeWidth={2.6} /> Добавить упражнение
+        <button className="btn-primary haptic-host" onClick={() => setDraft({ date: selected })}>
+          <HapticPad /><Icon name="plus" strokeWidth={2.6} /> Добавить упражнение
         </button>
       </div>
 
@@ -202,7 +202,8 @@ function DayStrip({ selected, today, marked, onSelect }: { selected: number; tod
         {days.map((d) => (
           <div key={d} className="row" style={{ gap: 8, flex: 'none' }}>
             {new Date(d).getDate() === 1 && <span className="month-sep">{monthShort(d)}</span>}
-            <button data-day={d} className={`day-pill ${d === selected ? 'selected' : ''} ${d === today ? 'today' : ''}`} onClick={() => onSelect(d)}>
+            <button data-day={d} className={`day-pill haptic-host ${d === selected ? 'selected' : ''} ${d === today ? 'today' : ''}`} onClick={() => onSelect(d)}>
+              <HapticPad />
               <span className="wd">{weekdayShort(d)}</span>
               <span className="dn">{new Date(d).getDate()}</span>
               <span className="dot" style={{ background: marked.has(d) ? (d === selected ? '#fff' : C.orange) : 'transparent' }} />
@@ -251,7 +252,7 @@ function EntryCard({ entry, onOpen, onAddSet, onDelete }: { entry: Entry; onOpen
 
   return (
     <div className="entry-swipe">
-      <button className="entry-swipe-delete" onClick={onDelete} aria-label="Удалить">Удалить</button>
+      <button className="entry-swipe-delete" onClick={onDelete} aria-label="Удалить"><HapticPad />Удалить</button>
       <div className={`entry-card ${dragging ? 'dragging' : ''}`} style={{ transform: `translateX(${x}px)` }}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
       <button onClick={() => { if (x < 0) setX(0); else onOpen() }} className="row" style={{ flex: 1, minWidth: 0, gap: 14, textAlign: 'left' }}>
@@ -265,7 +266,8 @@ function EntryCard({ entry, onOpen, onAddSet, onDelete }: { entry: Entry; onOpen
           {entry.note && <div className="caption" style={{ marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.note}</div>}
         </div>
       </button>
-      <button className="add-set" style={{ background: alpha(color, 0.15), color }} onClick={onAddSet} aria-label="Добавить подход">
+      <button className="add-set haptic-host" style={{ background: alpha(color, 0.15), color }} onClick={onAddSet} aria-label="Добавить подход">
+        <HapticPad />
         <Icon name="plus" size={18} strokeWidth={2.6} />
         подход
       </button>
