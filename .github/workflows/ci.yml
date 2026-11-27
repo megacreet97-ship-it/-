@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  logic-tests:
+    runs-on: ubuntu-latest
+    container: swift:6.0-noble
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  ios-build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: Pick simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          for runtime, items in sorted(devices.items(), reverse=True):
+              if "iOS" not in runtime:
+                  continue
+              for d in items:
+                  if d["name"].startswith("iPhone") and "Pro" in d["name"] and "Max" not in d["name"]:
+                      print(d["udid"]); sys.exit()
+          ')
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl list devices | grep "$UDID"
+      - name: Build for iOS Simulator
+        run: |
+          xcodebuild \
+            -project StreetLog.xcodeproj \
+            -scheme StreetLog \
+            -configuration Debug \
+            -destination "id=$UDID" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Launch in simulator and take screenshots
+        run: |
+          APP=build/Build/Products/Debug-iphonesimulator/StreetLog.app
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$APP/Info.plist")
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID"
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryLevel 100 || true
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p screenshots
+          shoot() {
+            NAME=$1; shift
+            OUT=$(xcrun simctl launch "$UDID" "$BUNDLE_ID" -seedDemo YES "$@")
+            PID=${OUT##*: }
+            sleep 7
+            if ! ps -p "$PID" > /dev/null; then
+              echo "App crashed on $NAME"; exit 1
+            fi
+            xcrun simctl io "$UDID" screenshot "screenshots/$NAME.png"
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID"
+          }
+          shoot 1-diary -initialTab 0
+          shoot 2-master -initialTab 1
+          shoot 3-exercises -initialTab 2
+          shoot 4-analytics -initialTab 3
+          shoot 5-profile -initialTab 4
+          shoot 6-quicklog -initialTab 0 -demoScreen quicklog
+          shoot 7-standards -initialTab 1 -demoScreen standards
+          shoot 8-copy-day -initialTab 0 -demoScreen copyday
+          shoot 11-technique -initialTab 2 -demoScreen technique
+          shoot 12-rest -initialTab 0 -demoRest YES
+          shoot 9-recomp -initialTab 1 -demoGoal recomp
+          shoot 10-profile-recomp -initialTab 4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: screenshots/
+
+  ipa:
+    runs-on: macos-15
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build unsigned iPhone app
+        run: |
+          xcodebuild \
+            -project StreetLog.xcodeproj \
+            -scheme StreetLog \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Package StreetLog.ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/StreetLog.app Payload/
+          zip -qry StreetLog.ipa Payload
+          ls -lh StreetLog.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StreetLog-ipa
+          path: StreetLog.ipa
+      - name: Publish rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ipa-latest --yes --cleanup-tag || true
+          gh release create ipa-latest StreetLog.ipa \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "StreetLog для SideStore (последняя сборка)" \
+            --notes "Неподписанная сборка для установки через SideStore/AltStore. Ветка: ${GITHUB_REF_NAME}, коммит: ${GITHUB_SHA::7}."

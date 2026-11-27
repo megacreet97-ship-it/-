@@ -1,0 +1,51 @@
+name: Web on GitHub Pages
+
+on:
+  push:
+    branches: [main, cursor/streetlifting-fitness-logger-6097]
+    paths: ['web/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: web/dist
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: 'Deploy web version'
+      - name: Enable Pages from gh-pages (no-op when already enabled)
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pages" >/dev/null 2>&1; then
+            echo "Pages already enabled"
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/pages" -f 'source[branch]=gh-pages' -f 'source[path]=/' \
+              || echo "::warning::Could not enable Pages automatically. Enable it in Settings > Pages (branch gh-pages)."
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/pages" --jq '"Pages: \(.html_url) status=\(.status)"' || true

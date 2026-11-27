@@ -1,0 +1,138 @@
+# Technique photos from free-exercise-db (https://github.com/yuhonas/free-exercise-db, The Unlicense / public domain).
+# name | free-exercise-db id (start and end position photos: <id>/0.jpg, <id>/1.jpg)
+Подтягивания с отягощением | Weighted_Pull_Ups
+Отжимания на брусьях с отягощением | Dips_-_Triceps_Version
+Подтягивания с отягощением — одиночки | Weighted_Pull_Ups
+Брусья с отягощением — одиночки | Dips_-_Triceps_Version
+Подтягивания с паузой над перекладиной | Pullups
+Брусья с паузой внизу | Dips_-_Triceps_Version
+Негативные подтягивания с отягощением | Weighted_Pull_Ups
+Негативные отжимания на брусьях с отягощением | Dips_-_Triceps_Version
+Частичные подтягивания (дожимы) | Pullups
+Частичные отжимания на брусьях | Dips_-_Triceps_Version
+Подтягивания | Pullups
+Подтягивания широким хватом | Pullups
+Подтягивания узким хватом | V-Bar_Pullup
+Подтягивания обратным хватом | Chin-Up
+Подтягивания параллельным хватом | V-Bar_Pullup
+Подтягивания к груди | Gironda_Sternum_Chins
+Подтягивания за голову | Wide-Grip_Rear_Pull-Up
+Подтягивания в стиле лучника | Side_To_Side_Chins
+Подтягивания на одной руке (с помощью) | One_Arm_Chin-Up
+Негативные подтягивания | Pullups
+Подтягивания с резинкой | Band_Assisted_Pull-Up
+Австралийские подтягивания | Inverted_Row
+Выход силой на перекладине | Muscle_Up
+Отжимания на брусьях | Dips_-_Triceps_Version
+Отжимания на брусьях с наклоном (на грудь) | Dips_-_Chest_Version
+Отжимания на брусьях прямо (на трицепс) | Dips_-_Triceps_Version
+Негативные отжимания на брусьях | Dips_-_Triceps_Version
+Отжимания на кольцах | Ring_Dips
+Отжимания от пола | Pushups
+Отжимания широким хватом | Push-Up_Wide
+Отжимания с ногами на возвышении | Push-Ups_With_Feet_Elevated
+Отжимания с хлопком | Plyo_Push-up
+Отжимания с отягощением | Pushups
+Жим лёжа | Barbell_Bench_Press_-_Medium_Grip
+Жим лёжа узким хватом | Close-Grip_Barbell_Bench_Press
+Жим штанги на наклонной скамье | Barbell_Incline_Bench_Press_-_Medium_Grip
+Жим гантелей лёжа | Dumbbell_Bench_Press
+Жим гантелей на наклонной скамье | Incline_Dumbbell_Press
+Разведение гантелей лёжа | Dumbbell_Flyes
+Сведение рук в кроссовере | Cable_Crossover
+Сведение рук в тренажёре (бабочка) | Butterfly
+Жим в тренажёре на грудь | Machine_Bench_Press
+Пуловер с гантелью | Straight-Arm_Dumbbell_Pullover
+Тяга штанги в наклоне | Bent_Over_Barbell_Row
+Тяга гантели в наклоне одной рукой | One-Arm_Dumbbell_Row
+Тяга верхнего блока к груди | Wide-Grip_Lat_Pulldown
+Тяга верхнего блока узким хватом | Close-Grip_Front_Lat_Pulldown
+Тяга горизонтального блока | Seated_Cable_Rows
+Тяга Т-грифа | T-Bar_Row_with_Handle
+Тяга в тренажёре (рычажная) | Leverage_Iso_Row
+Пуловер на блоке прямыми руками | Straight-Arm_Pulldown
+Становая тяга | Barbell_Deadlift
+Румынская тяга | Romanian_Deadlift
+Гиперэкстензия | Hyperextensions_Back_Extensions
+Шраги со штангой | Barbell_Shrug
+Шраги с гантелями | Dumbbell_Shrug
+Жим штанги стоя | Standing_Military_Press
+Жим гантелей сидя | Seated_Dumbbell_Press
+Жим Арнольда | Arnold_Dumbbell_Press
+Махи гантелями в стороны (разводка на средние дельты) | Side_Lateral_Raise
+Махи гантелями перед собой | Front_Dumbbell_Raise
+Махи в наклоне (на задние дельты) | Seated_Bent-Over_Rear_Delt_Raise
+Разведение в тренажёре на задние дельты | Reverse_Machine_Flyes
+Махи в сторону на нижнем блоке | Standing_Low-Pulley_Deltoid_Raise
+Тяга штанги к подбородку | Upright_Barbell_Row
+Тяга каната к лицу (фейс-пулл) | Face_Pull
+Отжимания в стойке на руках | Handstand_Push-Ups
+Внешняя ротация плеча с резинкой | External_Rotation_with_Band
+Сгибания на бицепс | Dumbbell_Bicep_Curl
+Сгибания со штангой стоя | Barbell_Curl
+Сгибания с EZ-грифом | EZ-Bar_Curl
+Сгибания с гантелями стоя | Dumbbell_Alternate_Bicep_Curl
+Сгибания с гантелями сидя на наклонной скамье | Incline_Dumbbell_Curl
+Молотки с гантелями | Hammer_Curls
+Концентрированные сгибания | Concentration_Curls
+Сгибания на скамье Скотта | Preacher_Curl
+Сгибания на нижнем блоке | Standing_Biceps_Cable_Curl
+Французский жим | EZ-Bar_Skullcrusher
+Французский жим с гантелями | Lying_Dumbbell_Tricep_Extension
+Разгибания на блоке (канат) | Triceps_Pushdown_-_Rope_Attachment
+Разгибания на блоке (прямая рукоять) | Triceps_Pushdown
+Разгибание гантели из-за головы | Standing_Dumbbell_Triceps_Extension
+Разгибание руки с гантелью в наклоне | Tricep_Dumbbell_Kickback
+Отжимания от скамьи | Bench_Dips
+Алмазные отжимания | Push-Ups_-_Close_Triceps_Position
+Сгибания запястий со штангой | Palms-Up_Barbell_Wrist_Curl_Over_A_Bench
+Разгибания запястий со штангой | Palms-Down_Wrist_Curl_Over_A_Bench
+Прогулка фермера | Farmers_Walk
+Приседания | Bodyweight_Squat
+Приседания со штангой | Barbell_Squat
+Фронтальные приседания | Front_Barbell_Squat
+Гоблет-приседания с гантелью | Goblet_Squat
+Выпады с гантелями | Dumbbell_Lunges
+Выпады со штангой | Barbell_Lunge
+Выпады назад | Dumbbell_Rear_Lunge
+Выпады в ходьбе | Bodyweight_Walking_Lunge
+Болгарские сплит-приседания | Split_Squat_with_Dumbbells
+Зашагивания на тумбу с гантелями | Dumbbell_Step_Ups
+Жим ногами | Leg_Press
+Гакк-приседания | Hack_Squat
+Разгибания ног в тренажёре | Leg_Extensions
+Сгибания ног в тренажёре | Lying_Leg_Curls
+Пистолетик (приседание на одной ноге) | Kettlebell_Pistol_Squat
+Прыжки на тумбу | Front_Box_Jump
+Сведение ног в тренажёре | Thigh_Adductor
+Разведение ног в тренажёре | Thigh_Abductor
+Ягодичный мост со штангой | Barbell_Hip_Thrust
+Ягодичный мост | Butt_Lift_Bridge
+Отведение ноги назад на блоке | One-Legged_Cable_Kickback
+Махи ногой назад в кроссовере | One-Legged_Cable_Kickback
+Румынская тяга с гантелями | Stiff-Legged_Dumbbell_Deadlift
+Свинги с гирей | One-Arm_Kettlebell_Swings
+Подъёмы на носки стоя | Standing_Calf_Raises
+Подъёмы на носки сидя | Seated_Calf_Raise
+Подъёмы на носки в тренажёре | Calf_Press_On_The_Leg_Press_Machine
+Подъём ног в висе | Hanging_Leg_Raise
+Подъём коленей в висе | Hanging_Leg_Raise
+Планка (сек) | Plank
+Боковая планка (сек) | Side_Bridge
+Скручивания | Crunches
+Обратные скручивания | Reverse_Crunch
+Велосипед | Air_Bike
+Русские скручивания | Russian_Twist
+Ролик для пресса | Ab_Roller
+Скручивания на блоке | Cable_Crunch
+Дровосек на блоке | Standing_Cable_Wood_Chop
+Подъём ног лёжа | Flat_Bench_Lying_Leg_Raise
+Бег (мин) | Running_Treadmill
+Велотренажёр (мин) | Bicycling_Stationary
+Гребной тренажёр (мин) | Rowing_Stationary
+Скакалка | Rope_Jumping
+Альпинист | Mountain_Climbers
+Эллипс (мин) | Elliptical_Trainer
+Растяжка плеч (сек) | Shoulder_Stretch
+Растяжка грудных в дверном проёме (сек) | Chest_And_Front_Of_Shoulder_Stretch
+Наклоны к ногам (сек) | Standing_Toe_Touches

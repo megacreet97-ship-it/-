@@ -1,0 +1,29 @@
+# Fallback for Xcode 15 (it cannot open the Xcode 16+ project format):
+#   brew install xcodegen && xcodegen generate
+# This regenerates StreetLog.xcodeproj from the sources.
+name: StreetLog
+options:
+  bundleIdPrefix: com.yourname
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  StreetLog:
+    type: application
+    platform: iOS
+    sources:
+      - StreetLog
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.streetlog
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Street
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
